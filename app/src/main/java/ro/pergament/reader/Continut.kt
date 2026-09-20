@@ -3,6 +3,7 @@ package ro.pergament.reader
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Color
+import android.graphics.Rect
 import android.graphics.pdf.PdfRenderer
 import android.net.Uri
 import android.os.ParcelFileDescriptor
@@ -68,21 +69,109 @@ object Cititor {
         return Continut.Pdf(pfd, r, r.pageCount)
     }
 
-    fun randeazaPdf(continut: Continut.Pdf, index: Int, latimePx: Int): Bitmap? {
+    /**
+     * Randeaza pagina la rezolutia ceruta si, daca taieMargini e pornit,
+     * decupeaza spatiul alb din jurul textului.
+     */
+    fun randeazaPdf(
+        continut: Continut.Pdf,
+        index: Int,
+        latimePx: Int,
+        taieMargini: Boolean
+    ): Bitmap? {
         return try {
             synchronized(continut.renderer) {
                 if (index < 0 || index >= continut.nrPagini) return null
                 val p = continut.renderer.openPage(index)
-                val lat = latimePx.coerceIn(400, 2000)
-                val inalt = (lat.toFloat() * p.height / p.width).toInt().coerceAtLeast(200)
+                val lat = latimePx.coerceIn(600, 4200)
+                val inalt = (lat.toFloat() * p.height / p.width).toInt().coerceIn(300, 8000)
                 val bmp = Bitmap.createBitmap(lat, inalt, Bitmap.Config.ARGB_8888)
                 bmp.eraseColor(Color.WHITE)
                 p.render(bmp, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
                 p.close()
-                bmp
+                if (!taieMargini) return bmp
+                val taiat = taieMarginiAlbe(bmp)
+                if (taiat !== bmp) bmp.recycle()
+                taiat
             }
         } catch (e: Exception) {
             null
+        }
+    }
+
+    /**
+     * Cauta unde incepe si unde se termina continutul negru de pe pagina
+     * si taie albul din jur. Lasa o rama subtire ca sa nu lipeasca textul de margine.
+     */
+    private fun taieMarginiAlbe(bmp: Bitmap): Bitmap {
+        try {
+            val L = bmp.width
+            val I = bmp.height
+            if (L < 200 || I < 200) return bmp
+
+            // esantionam la 1/4 din rezolutie, e destul si e rapid
+            val pas = 4
+            val l = L / pas
+            val i = I / pas
+            val px = IntArray(l * i)
+            val mic = Bitmap.createScaledBitmap(bmp, l, i, true)
+            mic.getPixels(px, 0, l, 0, 0, l, i)
+            mic.recycle()
+
+            val prag = 232   // sub asta consideram ca e continut, nu hartie
+
+            fun eContinut(k: Int): Boolean {
+                val c = px[k]
+                val r = (c shr 16) and 0xFF
+                val g = (c shr 8) and 0xFF
+                val b = c and 0xFF
+                return (r + g + b) / 3 < prag
+            }
+
+            var sus = -1
+            var jos = -1
+            var stanga = -1
+            var dreapta = -1
+
+            for (y in 0 until i) {
+                var n = 0
+                for (x in 0 until l) if (eContinut(y * l + x)) n++
+                if (n > l * 0.004) { sus = y; break }
+            }
+            for (y in i - 1 downTo 0) {
+                var n = 0
+                for (x in 0 until l) if (eContinut(y * l + x)) n++
+                if (n > l * 0.004) { jos = y; break }
+            }
+            for (x in 0 until l) {
+                var n = 0
+                for (y in 0 until i) if (eContinut(y * l + x)) n++
+                if (n > i * 0.004) { stanga = x; break }
+            }
+            for (x in l - 1 downTo 0) {
+                var n = 0
+                for (y in 0 until i) if (eContinut(y * l + x)) n++
+                if (n > i * 0.004) { dreapta = x; break }
+            }
+
+            if (sus < 0 || jos <= sus || stanga < 0 || dreapta <= stanga) return bmp
+
+            val rama = (l * 0.012).toInt().coerceAtLeast(2)
+            val x0 = ((stanga - rama).coerceAtLeast(0)) * pas
+            val x1 = ((dreapta + rama).coerceAtMost(l - 1)) * pas
+            val y0 = ((sus - rama).coerceAtLeast(0)) * pas
+            val y1 = ((jos + rama).coerceAtMost(i - 1)) * pas
+
+            val lw = (x1 - x0).coerceAtMost(L - x0)
+            val lh = (y1 - y0).coerceAtMost(I - y0)
+
+            // daca nu castigam macar 6% din suprafata, nu merita
+            if (lw > L * 0.97 && lh > I * 0.97) return bmp
+            if (lw < L * 0.25 || lh < I * 0.25) return bmp
+
+            return Bitmap.createBitmap(bmp, x0, y0, lw, lh)
+        } catch (e: Exception) {
+            return bmp
         }
     }
 
