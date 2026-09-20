@@ -471,3 +471,201 @@ private fun ModCatalog(
             }
             Box(
                 Modifier
+                    .padding(horizontal = 22.dp)
+                    .fillMaxWidth()
+                    .height(0.5.dp)
+                    .background(AurStins.copy(alpha = 0.16f))
+            )
+        }
+    }
+}
+
+@Composable
+private fun BaraProgres(carte: Carte) {
+    if (carte.progres > 0f) {
+        Box(
+            Modifier
+                .padding(top = 6.dp)
+                .fillMaxWidth()
+                .height(1.5.dp)
+                .background(AurStins.copy(alpha = 0.22f))
+        ) {
+            Box(
+                Modifier
+                    .fillMaxWidth(carte.progres)
+                    .height(1.5.dp)
+                    .background(Aur)
+            )
+        }
+    }
+}
+
+@Composable
+private fun BaraCautare(valoare: String, onSchimbare: (String) -> Unit) {
+    Row(
+        modifier = Modifier
+            .padding(horizontal = 22.dp, vertical = 14.dp)
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(3.dp))
+            .background(LemnCald)
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            Icons.Filled.Search, null, tint = PergamStins,
+            modifier = Modifier.size(18.dp)
+        )
+        Spacer(Modifier.width(10.dp))
+        Box(Modifier.fillMaxWidth()) {
+            if (valoare.isEmpty()) {
+                Text(
+                    "Caută după titlu sau autor",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = PergamStins.copy(alpha = 0.7f)
+                )
+            }
+            BasicTextField(
+                value = valoare,
+                onValueChange = onSchimbare,
+                singleLine = true,
+                textStyle = MaterialTheme.typography.bodyMedium.copy(color = Pergam),
+                cursorBrush = SolidColor(Aur),
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun Raft(
+    nume: String,
+    carti: List<Carte>,
+    onDeschide: (Carte) -> Unit,
+    onMeniu: (Carte) -> Unit
+) {
+    Column(Modifier.padding(top = 20.dp)) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 22.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(nume, style = MaterialTheme.typography.headlineMedium, color = Pergam)
+            Text("${carti.size}", style = MaterialTheme.typography.bodyMedium, color = AurStins)
+        }
+        Spacer(Modifier.height(12.dp))
+        LazyRow(
+            contentPadding = PaddingValues(horizontal = 22.dp),
+            horizontalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            items(carti) { carte ->
+                Column(modifier = Modifier.width(112.dp)) {
+                    Box {
+                        Coperta(
+                            carte = carte,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .aspectRatio(0.66f)
+                                .combinedClickable(
+                                    onClick = { onDeschide(carte) },
+                                    onLongClick = { onMeniu(carte) }
+                                )
+                        )
+                        if (carte.favorita) {
+                            Icon(
+                                Icons.Filled.Star, null, tint = Aur,
+                                modifier = Modifier
+                                    .align(Alignment.TopEnd)
+                                    .padding(5.dp)
+                                    .size(14.dp)
+                            )
+                        }
+                    }
+                    BaraProgres(carte)
+                    Spacer(Modifier.height(7.dp))
+                    Text(
+                        carte.titlu,
+                        style = MaterialTheme.typography.titleMedium,
+                        color = Pergam.copy(alpha = 0.92f),
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    if (carte.autor.isNotBlank()) {
+                        Text(
+                            carte.autor,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = PergamStins,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+            }
+        }
+        Spacer(Modifier.height(10.dp))
+        Box(
+            Modifier
+                .padding(horizontal = 18.dp)
+                .fillMaxWidth()
+                .height(2.dp)
+                .background(
+                    Brush.horizontalGradient(
+                        listOf(Color.Transparent, AurStins.copy(alpha = 0.55f), Color.Transparent)
+                    )
+                )
+        )
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun BibliotecaGoala(onAdauga: () -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 30.dp, vertical = 60.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text("Rafturile sunt goale", style = MaterialTheme.typography.headlineMedium, color = Pergam)
+        Spacer(Modifier.height(12.dp))
+        Text(
+            "Adaugă fișiere PDF, EPUB, TXT sau benzi desenate CBZ. Pergament le citește titlul, le caută coperta și le așază singur pe raftul potrivit.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = PergamStins
+        )
+        Spacer(Modifier.height(26.dp))
+        Box(
+            Modifier
+                .clip(RoundedCornerShape(2.dp))
+                .background(Aur)
+                .combinedClickable(onClick = onAdauga)
+                .padding(horizontal = 26.dp, vertical = 13.dp)
+        ) {
+            Text("Adaugă prima carte", color = Noapte, style = MaterialTheme.typography.titleMedium)
+        }
+    }
+}
+
+private fun perioada(t: Long): String {
+    val acum = Calendar.getInstance()
+    val c = Calendar.getInstance()
+    c.timeInMillis = t
+    val aziAn = acum.get(Calendar.YEAR)
+    val aziZi = acum.get(Calendar.DAY_OF_YEAR)
+    val an = c.get(Calendar.YEAR)
+    val zi = c.get(Calendar.DAY_OF_YEAR)
+    if (an == aziAn) {
+        val dif = aziZi - zi
+        if (dif == 0) return "Astăzi"
+        if (dif == 1) return "Ieri"
+        if (dif < 7) return "Săptămâna aceasta"
+        if (dif < 31) return "Luna aceasta"
+    }
+    return SimpleDateFormat("LLLL yyyy", Locale("ro", "RO")).format(Date(t))
+        .replaceFirstChar { it.uppercase() }
+}
+
+private fun dataScurta(t: Long): String =
+    SimpleDateFormat("d MMMM yyyy", Locale("ro", "RO")).format(Date(t))
