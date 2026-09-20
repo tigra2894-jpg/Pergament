@@ -56,6 +56,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.asImageBitmap
@@ -137,7 +138,10 @@ fun EcranLectura(
                 }
             }
         } else {
-            PaginiCarte(carte, c, setari, tema, onProgres, onSemn, onNotita, onInapoi)
+            PaginiCarte(
+                carte, c, setari, tema, onSetari,
+                onProgres, onSemn, onNotita, onInapoi
+            )
         }
     }
 }
@@ -148,6 +152,7 @@ private fun PaginiCarte(
     continut: Continut,
     setari: Setari,
     tema: TemaLectura,
+    onSetari: (Setari) -> Unit,
     onProgres: (Int, Int) -> Unit,
     onSemn: (Int) -> Unit,
     onNotita: (Notita) -> Unit,
@@ -170,7 +175,7 @@ private fun PaginiCarte(
 
     DisposableEffect(Unit) {
         val motor = TextToSpeech(ctx) { }
-        motor.language = Locale("ro", "RO")
+        motor.setLanguage(Locale("ro", "RO"))
         tts = motor
         onDispose {
             try {
@@ -449,7 +454,7 @@ private fun PaginaText(
 
 @Composable
 private fun PaginaPdf(continut: Continut.Pdf, index: Int) {
-    var imagine by remember(index) { mutableStateOf<androidx.compose.ui.graphics.ImageBitmap?>(null) }
+    var imagine by remember(index) { mutableStateOf<ImageBitmap?>(null) }
     LaunchedEffect(index) {
         val b = withContext(Dispatchers.IO) { Cititor.randeazaPdf(continut, index, 1400) }
         imagine = b?.asImageBitmap()
@@ -471,7 +476,7 @@ private fun PaginaPdf(continut: Continut.Pdf, index: Int) {
 
 @Composable
 private fun PaginaImagine(cale: String?) {
-    var imagine by remember(cale) { mutableStateOf<androidx.compose.ui.graphics.ImageBitmap?>(null) }
+    var imagine by remember(cale) { mutableStateOf<ImageBitmap?>(null) }
     LaunchedEffect(cale) {
         if (cale != null) {
             val b = withContext(Dispatchers.IO) {
