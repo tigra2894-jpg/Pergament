@@ -112,7 +112,8 @@ data class Setari(
     val inaltimeRand: Float = 1.7f,
     val margine: Float = 24f,
     val tema: Int = 0,
-    val intoarcereCurl: Boolean = true
+    val intoarcereCurl: Boolean = true,
+    val taiePdf: Boolean = false
 )
 
 object SetariStore {
@@ -128,7 +129,8 @@ object SetariStore {
                 inaltimeRand = o.optDouble("inaltimeRand", 1.7).toFloat(),
                 margine = o.optDouble("margine", 24.0).toFloat(),
                 tema = o.optInt("tema", 0),
-                intoarcereCurl = o.optBoolean("intoarcereCurl", true)
+                intoarcereCurl = o.optBoolean("intoarcereCurl", true),
+                taiePdf = o.optBoolean("taiePdf", false)
             )
         } catch (e: Exception) {
             Setari()
@@ -143,6 +145,7 @@ object SetariStore {
             o.put("margine", s.margine.toDouble())
             o.put("tema", s.tema)
             o.put("intoarcereCurl", s.intoarcereCurl)
+            o.put("taiePdf", s.taiePdf)
             fisier(ctx).writeText(o.toString())
         } catch (e: Exception) {
         }
