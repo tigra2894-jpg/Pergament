@@ -9,6 +9,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -31,6 +32,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.BookmarkBorder
+import androidx.compose.material.icons.filled.CropFree
 import androidx.compose.material.icons.filled.EditNote
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Stop
@@ -47,6 +49,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -64,6 +67,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -161,6 +165,9 @@ private fun PaginiCarte(
     val ctx = LocalContext.current
     val scop = rememberCoroutineScope()
     val total = continut.nrPaginiTotal
+    val estePdf = continut is Continut.Pdf
+    val esteText = continut is Continut.Litera
+
     val pagerState = rememberPagerState(
         initialPage = carte.paginaCurenta.coerceIn(0, (total - 1).coerceAtLeast(0))
     ) { total }
@@ -196,7 +203,8 @@ private fun PaginiCarte(
 
     HorizontalPager(
         state = pagerState,
-        modifier = Modifier.fillMaxSize()
+        modifier = Modifier.fillMaxSize(),
+        userScrollEnabled = true
     ) { pagina ->
         val deplasare = (pagerState.currentPage - pagina) + pagerState.currentPageOffsetFraction
         Box(
@@ -215,44 +223,87 @@ private fun PaginiCarte(
                         alpha = (1f - abs(deplasare) * 0.5f).coerceIn(0f, 1f)
                     }
                 }
-                .background(tema.hartie)
-                .pointerInput(total) {
-                    detectTapGestures { pozitie ->
-                        val treime = size.width / 3f
-                        when {
-                            pozitie.x < treime -> scop.launch {
-                                if (pagerState.currentPage > 0)
-                                    pagerState.animateScrollToPage(pagerState.currentPage - 1)
-                            }
-                            pozitie.x > treime * 2 -> scop.launch {
-                                if (pagerState.currentPage < total - 1)
-                                    pagerState.animateScrollToPage(pagerState.currentPage + 1)
-                            }
-                            else -> bareVizibile = !bareVizibile
-                        }
-                    }
-                }
+                .background(if (estePdf) Color(0xFF101010) else tema.hartie)
         ) {
             when (continut) {
-                is Continut.Litera -> PaginaText(
-                    continut.pagini.getOrNull(pagina) ?: "", setari, tema, pagina, total
+                is Continut.Litera -> Box(
+                    Modifier
+                        .fillMaxSize()
+                        .pointerInput(total) {
+                            detectTapGestures { p ->
+                                val treime = size.width / 3f
+                                when {
+                                    p.x < treime -> scop.launch {
+                                        if (pagerState.currentPage > 0)
+                                            pagerState.animateScrollToPage(pagerState.currentPage - 1)
+                                    }
+                                    p.x > treime * 2 -> scop.launch {
+                                        if (pagerState.currentPage < total - 1)
+                                            pagerState.animateScrollToPage(pagerState.currentPage + 1)
+                                    }
+                                    else -> bareVizibile = !bareVizibile
+                                }
+                            }
+                        }
+                ) {
+                    PaginaText(
+                        continut.pagini.getOrNull(pagina) ?: "", setari, tema, pagina, total
+                    )
+                }
+
+                is Continut.Pdf -> PaginaPdf(
+                    continut = continut,
+                    index = pagina,
+                    taieMargini = setari.taiePdf,
+                    onPaginaInapoi = {
+                        scop.launch {
+                            if (pagerState.currentPage > 0)
+                                pagerState.animateScrollToPage(pagerState.currentPage - 1)
+                        }
+                    },
+                    onPaginaInainte = {
+                        scop.launch {
+                            if (pagerState.currentPage < total - 1)
+                                pagerState.animateScrollToPage(pagerState.currentPage + 1)
+                        }
+                    },
+                    onBare = { bareVizibile = !bareVizibile }
                 )
-                is Continut.Pdf -> PaginaPdf(continut, pagina)
-                is Continut.Imagini -> PaginaImagine(continut.cai.getOrNull(pagina))
+
+                is Continut.Imagini -> PaginaImagine(
+                    cale = continut.cai.getOrNull(pagina),
+                    onPaginaInapoi = {
+                        scop.launch {
+                            if (pagerState.currentPage > 0)
+                                pagerState.animateScrollToPage(pagerState.currentPage - 1)
+                        }
+                    },
+                    onPaginaInainte = {
+                        scop.launch {
+                            if (pagerState.currentPage < total - 1)
+                                pagerState.animateScrollToPage(pagerState.currentPage + 1)
+                        }
+                    },
+                    onBare = { bareVizibile = !bareVizibile }
+                )
+
                 else -> {}
             }
-            Box(
-                Modifier
-                    .fillMaxSize()
-                    .background(
-                        Brush.horizontalGradient(
-                            0f to Color.Black.copy(alpha = 0.06f),
-                            0.05f to Color.Transparent,
-                            0.95f to Color.Transparent,
-                            1f to Color.Black.copy(alpha = 0.06f)
+
+            if (esteText) {
+                Box(
+                    Modifier
+                        .fillMaxSize()
+                        .background(
+                            Brush.horizontalGradient(
+                                0f to Color.Black.copy(alpha = 0.06f),
+                                0.05f to Color.Transparent,
+                                0.95f to Color.Transparent,
+                                1f to Color.Black.copy(alpha = 0.06f)
+                            )
                         )
-                    )
-            )
+                )
+            }
         }
     }
 
@@ -319,12 +370,24 @@ private fun PaginiCarte(
                     Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceEvenly
                 ) {
-                    Icon(
-                        Icons.Filled.TextFields, "Reglaje text", tint = Pergam,
-                        modifier = Modifier
-                            .size(26.dp)
-                            .clickable { panouSetari = !panouSetari }
-                    )
+                    if (esteText) {
+                        Icon(
+                            Icons.Filled.TextFields, "Reglaje text", tint = Pergam,
+                            modifier = Modifier
+                                .size(26.dp)
+                                .clickable { panouSetari = !panouSetari }
+                        )
+                    }
+                    if (estePdf) {
+                        Icon(
+                            Icons.Filled.CropFree,
+                            "Taie marginile albe",
+                            tint = if (setari.taiePdf) Aur else Pergam,
+                            modifier = Modifier
+                                .size(26.dp)
+                                .clickable { onSetari(setari.copy(taiePdf = !setari.taiePdf)) }
+                        )
+                    }
                     Icon(
                         Icons.Filled.EditNote, "Notiță", tint = Pergam,
                         modifier = Modifier
@@ -349,7 +412,19 @@ private fun PaginiCarte(
                     }
                 }
 
-                if (panouSetari) {
+                if (estePdf) {
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        if (setari.taiePdf)
+                            "Marginile albe sunt tăiate. Apropie două degete ca să mărești."
+                        else
+                            "Pagina întreagă. Apropie două degete ca să mărești.",
+                        color = PergamStins,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+
+                if (panouSetari && esteText) {
                     Spacer(Modifier.height(10.dp))
                     PanouSetari(setari, onSetari)
                 }
@@ -453,20 +528,87 @@ private fun PaginaText(
 }
 
 @Composable
-private fun PaginaPdf(continut: Continut.Pdf, index: Int) {
-    var imagine by remember(index) { mutableStateOf<ImageBitmap?>(null) }
-    LaunchedEffect(index) {
-        val b = withContext(Dispatchers.IO) { Cititor.randeazaPdf(continut, index, 1400) }
+private fun PaginaPdf(
+    continut: Continut.Pdf,
+    index: Int,
+    taieMargini: Boolean,
+    onPaginaInapoi: () -> Unit,
+    onPaginaInainte: () -> Unit,
+    onBare: () -> Unit
+) {
+    val densitate = LocalDensity.current
+    var imagine by remember(index, taieMargini) { mutableStateOf<ImageBitmap?>(null) }
+    var marire by remember(index) { mutableFloatStateOf(1f) }
+    var mutX by remember(index) { mutableFloatStateOf(0f) }
+    var mutY by remember(index) { mutableFloatStateOf(0f) }
+    var latimeEcran by remember { mutableFloatStateOf(1200f) }
+
+    LaunchedEffect(index, taieMargini) {
+        val px = (latimeEcran * 2.4f).toInt().coerceIn(1200, 3600)
+        val b = withContext(Dispatchers.IO) {
+            Cititor.randeazaPdf(continut, index, px, taieMargini)
+        }
         imagine = b?.asImageBitmap()
     }
-    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+
+    Box(
+        Modifier
+            .fillMaxSize()
+            .pointerInput(index) {
+                latimeEcran = size.width.toFloat()
+                detectTransformGestures { _, pan, zoom, _ ->
+                    val nou = (marire * zoom).coerceIn(1f, 5f)
+                    marire = nou
+                    if (nou > 1.02f) {
+                        val limX = size.width * (nou - 1f) / 2f
+                        val limY = size.height * (nou - 1f) / 2f
+                        mutX = (mutX + pan.x).coerceIn(-limX, limX)
+                        mutY = (mutY + pan.y).coerceIn(-limY, limY)
+                    } else {
+                        mutX = 0f
+                        mutY = 0f
+                    }
+                }
+            }
+            .pointerInput(index) {
+                detectTapGestures(
+                    onDoubleTap = {
+                        if (marire > 1.05f) {
+                            marire = 1f; mutX = 0f; mutY = 0f
+                        } else {
+                            marire = 2.6f
+                        }
+                    },
+                    onTap = { p ->
+                        if (marire > 1.05f) {
+                            onBare()
+                        } else {
+                            val treime = size.width / 3f
+                            when {
+                                p.x < treime -> onPaginaInapoi()
+                                p.x > treime * 2 -> onPaginaInainte()
+                                else -> onBare()
+                            }
+                        }
+                    }
+                )
+            },
+        contentAlignment = Alignment.Center
+    ) {
         val img = imagine
         if (img != null) {
             Image(
                 bitmap = img,
                 contentDescription = null,
                 contentScale = ContentScale.Fit,
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier
+                    .fillMaxSize()
+                    .graphicsLayer {
+                        scaleX = marire
+                        scaleY = marire
+                        translationX = mutX
+                        translationY = mutY
+                    }
             )
         } else {
             CircularProgressIndicator(color = AurStins, strokeWidth = 1.5.dp)
@@ -475,8 +617,17 @@ private fun PaginaPdf(continut: Continut.Pdf, index: Int) {
 }
 
 @Composable
-private fun PaginaImagine(cale: String?) {
+private fun PaginaImagine(
+    cale: String?,
+    onPaginaInapoi: () -> Unit,
+    onPaginaInainte: () -> Unit,
+    onBare: () -> Unit
+) {
     var imagine by remember(cale) { mutableStateOf<ImageBitmap?>(null) }
+    var marire by remember(cale) { mutableFloatStateOf(1f) }
+    var mutX by remember(cale) { mutableFloatStateOf(0f) }
+    var mutY by remember(cale) { mutableFloatStateOf(0f) }
+
     LaunchedEffect(cale) {
         if (cale != null) {
             val b = withContext(Dispatchers.IO) {
@@ -489,10 +640,45 @@ private fun PaginaImagine(cale: String?) {
             imagine = b?.asImageBitmap()
         }
     }
+
     Box(
         Modifier
             .fillMaxSize()
-            .background(Color.Black),
+            .background(Color.Black)
+            .pointerInput(cale) {
+                detectTransformGestures { _, pan, zoom, _ ->
+                    val nou = (marire * zoom).coerceIn(1f, 5f)
+                    marire = nou
+                    if (nou > 1.02f) {
+                        val limX = size.width * (nou - 1f) / 2f
+                        val limY = size.height * (nou - 1f) / 2f
+                        mutX = (mutX + pan.x).coerceIn(-limX, limX)
+                        mutY = (mutY + pan.y).coerceIn(-limY, limY)
+                    } else {
+                        mutX = 0f; mutY = 0f
+                    }
+                }
+            }
+            .pointerInput(cale) {
+                detectTapGestures(
+                    onDoubleTap = {
+                        if (marire > 1.05f) {
+                            marire = 1f; mutX = 0f; mutY = 0f
+                        } else marire = 2.6f
+                    },
+                    onTap = { p ->
+                        if (marire > 1.05f) onBare()
+                        else {
+                            val treime = size.width / 3f
+                            when {
+                                p.x < treime -> onPaginaInapoi()
+                                p.x > treime * 2 -> onPaginaInainte()
+                                else -> onBare()
+                            }
+                        }
+                    }
+                )
+            },
         contentAlignment = Alignment.Center
     ) {
         val img = imagine
@@ -501,7 +687,14 @@ private fun PaginaImagine(cale: String?) {
                 bitmap = img,
                 contentDescription = null,
                 contentScale = ContentScale.Fit,
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier
+                    .fillMaxSize()
+                    .graphicsLayer {
+                        scaleX = marire
+                        scaleY = marire
+                        translationX = mutX
+                        translationY = mutY
+                    }
             )
         } else {
             CircularProgressIndicator(color = AurStins, strokeWidth = 1.5.dp)
@@ -516,7 +709,7 @@ private fun PanouSetari(setari: Setari, onSetari: (Setari) -> Unit) {
         Slider(
             value = setari.marimeText,
             onValueChange = { onSetari(setari.copy(marimeText = it)) },
-            valueRange = 13f..30f,
+            valueRange = 13f..34f,
             colors = SliderDefaults.colors(
                 thumbColor = Aur,
                 activeTrackColor = Aur,
@@ -538,7 +731,7 @@ private fun PanouSetari(setari: Setari, onSetari: (Setari) -> Unit) {
         Slider(
             value = setari.margine,
             onValueChange = { onSetari(setari.copy(margine = it)) },
-            valueRange = 12f..48f,
+            valueRange = 8f..44f,
             colors = SliderDefaults.colors(
                 thumbColor = Aur,
                 activeTrackColor = Aur,
@@ -557,12 +750,7 @@ private fun PanouSetari(setari: Setari, onSetari: (Setari) -> Unit) {
                         .clickable { onSetari(setari.copy(tema = i)) },
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(
-                        t.nume,
-                        color = t.cerneala,
-                        fontSize = 10.sp,
-                        fontFamily = FontFamily.Serif
-                    )
+                    Text(t.nume, color = t.cerneala, fontSize = 10.sp, fontFamily = FontFamily.Serif)
                 }
             }
         }
@@ -574,11 +762,7 @@ private fun PanouSetari(setari: Setari, onSetari: (Setari) -> Unit) {
                 .padding(vertical = 6.dp),
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Text(
-                "Întoarcerea paginii",
-                color = PergamStins,
-                style = MaterialTheme.typography.bodyMedium
-            )
+            Text("Întoarcerea paginii", color = PergamStins, style = MaterialTheme.typography.bodyMedium)
             Text(
                 if (setari.intoarcereCurl) "hârtie îndoită" else "alunecare",
                 color = Aur,
