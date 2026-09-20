@@ -13,22 +13,89 @@ object Rafturi {
     )
 
     private val cuvinte: List<Pair<String, List<String>>> = listOf(
-        "Poezie" to listOf("poez", "versuri", "sonet", "balad", "elegii", "lirica"),
-        "Istorie" to listOf("istori", "razboi", "imperiu", "dacia", "medieval", "revolut", "cronica", "dinastia", "1848", "1918", "1989"),
-        "Filosofie" to listOf("filosof", "filozof", "etica", "metafizic", "logica", "stoic", "nietzsche", "platon", "aristotel", "seneca", "kant"),
-        "Religie" to listOf("biblia", "biblie", "evanghel", "psalm", "rugaciun", "ortodox", "crestin", "teolog", "sfantul", "sfanta", "coran", "budism", "spiritual"),
-        "Psihologie" to listOf("psiholog", "psihic", "mintea", "creier", "emotii", "anxiet", "depres", "terapie", "subconstient", "comportament", "freud", "jung"),
-        "Științe" to listOf("fizica", "chimie", "biolog", "matemat", "astronom", "univers", "cuantic", "evolut", "geolog", "stiinta", "stiinte"),
-        "Tehnică & Construcții" to listOf("constructi", "instalati", "electric", "electro", "mecanic", "auto", "motor", "tehnic", "inginer", "zidarie", "tamplarie", "sudura", "proiectare", "arhitect", "programare", "python", "java", "linux", "calculator"),
-        "Afaceri & Bani" to listOf("afaceri", "business", "marketing", "vanzari", "bani", "investit", "bursa", "antrepren", "economi", "finant", "contabil", "management", "succes", "milionar", "bogat"),
-        "Sănătate" to listOf("sanatate", "medicin", "anatomi", "nutrit", "diet", "vindecare", "remedii", "plante medicinale", "fitness", "sport", "yoga", "boli"),
-        "Artă & Muzică" to listOf("arta", "pictur", "sculptur", "muzic", "chitara", "pian", "desen", "fotograf", "design", "film", "teatru"),
-        "Gătit" to listOf("retet", "bucatar", "gatit", "culinar", "prajitur", "paine", "cofetar", "mancare"),
-        "Călătorii" to listOf("calator", "ghid turistic", "turism", "harta", "jurnal de calatorie"),
-        "Limbi străine" to listOf("dictionar", "gramatic", "engleza", "germana", "italiana", "spaniola", "franceza", "curs de limba", "vocabular", "conversatie"),
-        "Copii" to listOf("copii", "povesti", "basme", "prichindel", "pentru cei mici", "fabule", "ilustrat"),
-        "Manuale & Ghiduri" to listOf("manual", "ghid", "curs", "tutorial", "indrumar", "instructiuni", "lectii", "clasa a"),
-        "Literatură" to listOf("roman", "nuvel", "povestir", "aventur", "dragoste", "politist", "mister", "thriller", "science fiction", "fantasy", "clasic", "opere")
+        "Limbi străine" to listOf(
+            "english", "grammar", "vocabulary", "dictionary", "phrasal",
+            "idioms", "deutsch", "italiano", "espanol", "francais",
+            "dictionar", "gramatic", "engleza", "germana", "italiana",
+            "spaniola", "franceza", "curs de limba", "vocabular", "conversatie",
+            "limba ", "in use", "workbook", "student book", "elementary",
+            "intermediate", "advanced", "beginner"
+        ),
+        "Benzi desenate" to listOf("comic", "manga", "benzi desenate"),
+        "Poezie" to listOf(
+            "poez", "versuri", "sonet", "balad", "elegii", "lirica",
+            "poetry", "poems"
+        ),
+        "Religie" to listOf(
+            "biblia", "biblie", "evanghel", "psalm", "rugaciun", "ortodox",
+            "crestin", "teolog", "sfantul", "sfanta", "coran", "budism",
+            "spiritual", "bible", "gospel", "prayer", "zen"
+        ),
+        "Filosofie" to listOf(
+            "filosof", "filozof", "etica", "metafizic", "logica", "stoic",
+            "dialectic", "retoric", "nietzsche", "platon", "aristotel",
+            "seneca", "kant", "schopenhauer", "marc aureliu", "epictet",
+            "philosophy", "meditatii", "dreptate"
+        ),
+        "Istorie" to listOf(
+            "istori", "razboi", "imperiu", "dacia", "medieval", "revolut",
+            "cronica", "dinastia", "1848", "1918", "1989", "history",
+            "war", "empire", "antichitate"
+        ),
+        "Psihologie" to listOf(
+            "psiholog", "psihic", "mintea", "creier", "emotii", "anxiet",
+            "depres", "terapie", "subconstient", "comportament", "freud",
+            "jung", "psychology", "mindset", "habits", "obiceiuri"
+        ),
+        "Științe" to listOf(
+            "fizica", "chimie", "biolog", "matemat", "astronom", "univers",
+            "cuantic", "evolut", "geolog", "stiinta", "stiinte", "physics",
+            "chemistry", "biology", "mathematics", "science"
+        ),
+        "Tehnică & Construcții" to listOf(
+            "constructi", "instalati", "electric", "electro", "mecanic",
+            "automobil", "motoare", "tehnic", "inginer", "zidarie",
+            "tamplarie", "sudura", "proiectare", "arhitect", "programare",
+            "python", "java", "linux", "calculator", "engineering",
+            "building", "faianta", "gresie", "rigips", "sanitare"
+        ),
+        "Afaceri & Bani" to listOf(
+            "afaceri", "business", "marketing", "vanzari", "bani", "investit",
+            "bursa", "antrepren", "economi", "finant", "contabil",
+            "management", "succes", "milionar", "bogat", "money", "rich",
+            "startup", "trading"
+        ),
+        "Sănătate" to listOf(
+            "sanatate", "medicin", "anatomi", "nutrit", "diet", "vindecare",
+            "remedii", "plante medicinale", "fitness", "yoga", "boli",
+            "health", "medical", "antrenament"
+        ),
+        "Gătit" to listOf(
+            "retet", "bucatar", "gatit", "culinar", "prajitur", "paine",
+            "cofetar", "mancare", "recipe", "cooking", "cookbook"
+        ),
+        "Artă & Muzică" to listOf(
+            "pictur", "sculptur", "muzic", "chitara", "pian", "desen",
+            "fotograf", "teatru", "istoria artei", "arta plastica",
+            "music", "guitar", "painting", "drawing", "photography"
+        ),
+        "Călătorii" to listOf(
+            "calator", "ghid turistic", "turism", "jurnal de calatorie",
+            "travel", "lonely planet"
+        ),
+        "Copii" to listOf(
+            "copii", "povesti", "basme", "prichindel", "pentru cei mici",
+            "fabule", "ilustrat", "children", "fairy tales"
+        ),
+        "Manuale & Ghiduri" to listOf(
+            "manual", "ghid", "indrumar", "instructiuni", "lectii",
+            "clasa a", "handbook", "tutorial", "guide"
+        ),
+        "Literatură" to listOf(
+            "roman", "nuvel", "povestir", "aventur", "dragoste", "politist",
+            "mister", "thriller", "science fiction", "fantasy", "clasic",
+            "opere", "novel", "stories"
+        )
     )
 
     fun faraDiacritice(s: String): String {
@@ -41,9 +108,9 @@ object Rafturi {
     fun detecteaza(titlu: String, autor: String, format: String): String {
         if (format.equals("CBZ", true) || format.equals("CBR", true)) return "Benzi desenate"
         val t = faraDiacritice("$titlu $autor")
-        for ((raft, chei) in cuvinte) {
-            for (c in chei) {
-                if (t.contains(c)) return raft
+        for (pereche in cuvinte) {
+            for (c in pereche.second) {
+                if (t.contains(c)) return pereche.first
             }
         }
         return "Diverse"
