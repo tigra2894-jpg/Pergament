@@ -108,12 +108,12 @@ object Biblioteca {
 }
 
 data class Setari(
-    val marimeText: Float = 18f,
+    val marimeText: Float = 20f,
     val inaltimeRand: Float = 1.7f,
-    val margine: Float = 24f,
+    val margine: Float = 22f,
     val tema: Int = 0,
     val intoarcereCurl: Boolean = true,
-    val taiePdf: Boolean = false
+    val taiePdf: Boolean = true
 )
 
 object SetariStore {
@@ -125,12 +125,12 @@ object SetariStore {
         return try {
             val o = JSONObject(f.readText())
             Setari(
-                marimeText = o.optDouble("marimeText", 18.0).toFloat(),
+                marimeText = o.optDouble("marimeText", 20.0).toFloat(),
                 inaltimeRand = o.optDouble("inaltimeRand", 1.7).toFloat(),
-                margine = o.optDouble("margine", 24.0).toFloat(),
+                margine = o.optDouble("margine", 22.0).toFloat(),
                 tema = o.optInt("tema", 0),
                 intoarcereCurl = o.optBoolean("intoarcereCurl", true),
-                taiePdf = o.optBoolean("taiePdf", false)
+                taiePdf = o.optBoolean("taiePdf", true)
             )
         } catch (e: Exception) {
             Setari()
