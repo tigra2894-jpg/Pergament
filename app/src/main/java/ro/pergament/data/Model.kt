@@ -113,7 +113,8 @@ data class Setari(
     val margine: Float = 22f,
     val tema: Int = 0,
     val intoarcereCurl: Boolean = true,
-    val taiePdf: Boolean = true
+    val taiePdf: Boolean = true,
+    val pdfCaText: Boolean = true
 )
 
 object SetariStore {
@@ -130,7 +131,8 @@ object SetariStore {
                 margine = o.optDouble("margine", 22.0).toFloat(),
                 tema = o.optInt("tema", 0),
                 intoarcereCurl = o.optBoolean("intoarcereCurl", true),
-                taiePdf = o.optBoolean("taiePdf", true)
+                taiePdf = o.optBoolean("taiePdf", true),
+                pdfCaText = o.optBoolean("pdfCaText", true)
             )
         } catch (e: Exception) {
             Setari()
@@ -146,6 +148,7 @@ object SetariStore {
             o.put("tema", s.tema)
             o.put("intoarcereCurl", s.intoarcereCurl)
             o.put("taiePdf", s.taiePdf)
+            o.put("pdfCaText", s.pdfCaText)
             fisier(ctx).writeText(o.toString())
         } catch (e: Exception) {
         }
