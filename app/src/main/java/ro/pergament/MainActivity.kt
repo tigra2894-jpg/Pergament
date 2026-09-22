@@ -171,6 +171,14 @@ fun Aplicatia() {
             },
             onFavorita = { c ->
                 salveaza(carti.map { if (it.id == c.id) it.copy(favorita = !it.favorita) else it })
+            },
+            onModifica = { c, titlu, autor, raft ->
+                salveaza(carti.map {
+                    if (it.id == c.id)
+                        it.copy(titlu = titlu, autor = autor, raft = raft)
+                    else it
+                })
+                Toast.makeText(ctx, "Datele cărții au fost salvate.", Toast.LENGTH_SHORT).show()
             }
         )
     } else {
