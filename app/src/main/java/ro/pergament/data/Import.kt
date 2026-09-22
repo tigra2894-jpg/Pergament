@@ -19,7 +19,7 @@ object Import {
         "pdf", "epub", "txt", "download", "downloads", "downloaded",
         "free", "gratis", "ebook", "ebooks", "e-book", "scan", "scanat",
         "ocr", "copy", "copie", "final", "new", "zlib", "z-lib",
-        "libgen", "annas", "archive", "ru", "en"
+        "libgen", "annas", "archive", "ru", "en", "vol", "ed"
     )
 
     fun numeFisier(ctx: Context, uri: Uri): String {
@@ -56,12 +56,56 @@ object Import {
         return s.trim().trim(',', ';', '-').trim()
     }
 
-    private fun desparteAutor(s: String): Pair<String, String> {
-        val p = s.split(" - ", " – ", limit = 2)
-        if (p.size == 2 && p[0].length in 3..40 && p[0].split(" ").size <= 4) {
-            return p[1].trim() to p[0].trim()
+    /**
+     * Desparte autorul de titlu DOAR daca numele fisierului contine
+     * " - " cu spatii in jur, inainte de curatare. Asa "English-grammar-in-Use"
+     * nu mai e taiat gresit, fiindca liniutele lui nu au spatii.
+     */
+    private fun desparteAutor(numeBrut: String): Pair<String, String> {
+        val fara = numeBrut.substringBeforeLast('.')
+        val p = fara.split(" - ", " – ", " — ", limit = 2)
+        if (p.size == 2) {
+            val stanga = p[0].trim()
+            val dreapta = p[1].trim()
+            if (pareNume(stanga) && dreapta.length >= 3) {
+                return titluCurat(dreapta) to stanga
+            }
         }
-        return s to ""
+        return titluCurat(fara) to ""
+    }
+
+    /** Un autor are 1-4 cuvinte, litere, si nu e o propozitie. */
+    private fun pareNume(s: String): Boolean {
+        if (s.length !in 3..45) return false
+        val cuv = s.split(" ").filter { it.isNotBlank() }
+        if (cuv.size !in 1..4) return false
+        if (!s.any { it.isLetter() }) return false
+        if (s.count { it.isDigit() } > 4) return false
+        val j = Rafturi.faraDiacritice(s)
+        val legaturi = listOf(" de ", " a ", " si ", " in ", " la ", " cu ", " pe ", " the ", " of ", " and ")
+        for (l in legaturi) if (j.contains(l)) return false
+        return true
+    }
+
+    /** Numele celor care urca fisiere pe net, nu autori. */
+    private fun autorValid(a: String, titlu: String): Boolean {
+        if (!pareNume(a)) return false
+        val j = Rafturi.faraDiacritice(a)
+        val t = Rafturi.faraDiacritice(titlu)
+        // autorul nu poate fi tot titlul
+        if (t.contains(j) || j.contains(t)) return false
+        val respinse = listOf(
+            "anysam", "admin", "user", "windows", "microsoft", "adobe",
+            "acrobat", "calibre", "scanner", "hp", "canon", "epson",
+            "unknown", "necunoscut", "owner", "pc", "laptop", "office",
+            "word", "writer", "creator", "author", "autor"
+        )
+        for (r in respinse) if (j.contains(r)) return false
+        // nume in alfabet chirilic sau alte alfabete: nu ne putem baza pe ele
+        val latine = a.count { it.isLetter() && it.code < 0x250 }
+        val toate = a.count { it.isLetter() }
+        if (toate > 0 && latine.toFloat() / toate < 0.7f) return false
+        return true
     }
 
     private fun titluValid(t: String): Boolean {
@@ -71,7 +115,7 @@ object Import {
         val respins = listOf(
             "microsoft word", "untitled", "fara titlu", "document1",
             ".indd", ".doc", ".qxd", ".pmd", "layout", "printer",
-            "adobe", "pagemaker", "acrobat"
+            "adobe", "pagemaker", "acrobat", "calibre"
         )
         for (r in respins) if (j.contains(r)) return false
         return true
@@ -95,7 +139,7 @@ object Import {
             else -> if (ext.isBlank()) "TXT" else ext.uppercase(Locale.ROOT)
         }
 
-        val dinNume = desparteAutor(titluCurat(nume.substringBeforeLast('.')))
+        val dinNume = desparteAutor(nume)
         var titlu = dinNume.first
         var autor = dinNume.second
 
@@ -105,16 +149,17 @@ object Import {
             pagini = numaraPaginiPdf(ctx, uri)
             val meta = metadatePdf(ctx, uri)
             if (titluValid(meta.first)) titlu = titluCurat(meta.first)
-            if (autor.isBlank() && meta.second.length in 3..60) autor = meta.second.trim()
+            if (autor.isBlank() && autorValid(meta.second, titlu)) autor = meta.second.trim()
         }
 
         if (format == "EPUB") {
             val meta = metadateEpub(ctx, uri)
             if (titluValid(meta.first)) titlu = meta.first.trim()
-            if (meta.second.isNotBlank()) autor = meta.second.trim()
+            if (autorValid(meta.second, titlu)) autor = meta.second.trim()
         }
 
         if (!titluValid(titlu)) titlu = "Carte fără titlu"
+        if (!autorValid(autor, titlu)) autor = ""
 
         val id = "b" + System.currentTimeMillis() + "_" +
                 uri.toString().hashCode().toString().replace("-", "n")
@@ -196,9 +241,7 @@ object Import {
             if (c == '\\' && i + 1 < brut.length) {
                 val u = brut[i + 1]
                 when (u) {
-                    'n' -> { sb.append(' '); i += 2 }
-                    'r' -> { sb.append(' '); i += 2 }
-                    't' -> { sb.append(' '); i += 2 }
+                    'n', 'r', 't' -> { sb.append(' '); i += 2 }
                     '(', ')', '\\' -> { sb.append(u); i += 2 }
                     else -> {
                         if (u.isDigit() && i + 3 < brut.length) {
