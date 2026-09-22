@@ -71,10 +71,12 @@ fun EcranBiblioteca(
     onDeschide: (Carte) -> Unit,
     onAdauga: () -> Unit,
     onSterge: (Carte) -> Unit,
-    onFavorita: (Carte) -> Unit
+    onFavorita: (Carte) -> Unit,
+    onModifica: (Carte, String, String, String) -> Unit
 ) {
     var cautare by remember { mutableStateOf("") }
     var meniuPentru by remember { mutableStateOf<Carte?>(null) }
+    var editeaza by remember { mutableStateOf<Carte?>(null) }
     var mod by remember { mutableIntStateOf(0) }
     var sortare by remember { mutableIntStateOf(0) }
     val piele = texturaPiele()
@@ -230,24 +232,63 @@ fun EcranBiblioteca(
                         Text("${c.notite.size} notițe", style = MaterialTheme.typography.bodyMedium)
                     if (c.semne.isNotEmpty())
                         Text("${c.semne.size} semne de carte", style = MaterialTheme.typography.bodyMedium)
+
+                    Spacer(Modifier.height(18.dp))
+
+                    RandMeniu("Modifică titlul, autorul, raftul", Aur) {
+                        editeaza = c
+                        meniuPentru = null
+                    }
+                    RandMeniu(
+                        if (c.favorita) "Scoate din favorite" else "Pune la favorite",
+                        Aur
+                    ) {
+                        onFavorita(c)
+                        meniuPentru = null
+                    }
+                    RandMeniu("Scoate din bibliotecă", Vin) {
+                        onSterge(c)
+                        meniuPentru = null
+                    }
                 }
             },
             confirmButton = {
-                TextButton(onClick = { onFavorita(c); meniuPentru = null }) {
-                    Text(
-                        if (c.favorita) "Scoate din favorite" else "Pune la favorite",
-                        color = Aur
-                    )
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { onSterge(c); meniuPentru = null }) {
-                    Text("Scoate din bibliotecă", color = Vin)
+                TextButton(onClick = { meniuPentru = null }) {
+                    Text("Închide", color = PergamStins)
                 }
             }
         )
     }
+
+    val e = editeaza
+    if (e != null) {
+        DialogEditare(
+            carte = e,
+            onSalveaza = { titlu, autor, raft ->
+                onModifica(e, titlu, autor, raft)
+                editeaza = null
+            },
+            onRenunta = { editeaza = null }
+        )
+    }
 }
+
+@Composable
+private fun RandMeniu(text: String, culoare: Color, onClick: () -> Unit) {
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(2.dp))
+            .combinedClickableSimplu(onClick)
+            .padding(vertical = 13.dp)
+    ) {
+        Text(text, color = culoare, style = MaterialTheme.typography.titleMedium)
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+private fun Modifier.combinedClickableSimplu(onClick: () -> Unit): Modifier =
+    this.combinedClickable(onClick = onClick)
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
