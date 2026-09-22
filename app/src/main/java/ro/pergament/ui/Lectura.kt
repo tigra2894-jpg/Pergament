@@ -227,6 +227,16 @@ private fun PaginiCarte(
     val estePdfText = continut is Continut.Litera && continut.dinPdf
     val prefs = remember { ctx.getSharedPreferences("pergament", Context.MODE_PRIVATE) }
 
+    // textura hartiei: pergament pentru temele calde, hartie pentru cele reci
+    val texturaPagina = if (setari.tema == 1) texturaHartie() else texturaPergament()
+    val intensitateTextura = when (setari.tema) {
+        0 -> 0.85f   // Pergament
+        1 -> 0.55f   // Hartie
+        2 -> 0.30f   // Seara
+        else -> 0f   // Noapte: fara textura, ecran curat
+    }
+    val panza = texturaPanza()
+
     val stare = remember(continut) {
         val t = carte.totalPagini
         val p = carte.paginaCurenta
@@ -275,7 +285,7 @@ private fun PaginiCarte(
     val culoareSpate = when {
         estePdf -> Color(0xFFEAE4D6)
         esteImagini -> Color(0xFF2A2A2A)
-        else -> tema.hartie
+        else -> tema.hartie.umbraUsoara()
     }
 
     Box(Modifier.fillMaxSize()) {
@@ -296,6 +306,11 @@ private fun PaginiCarte(
                 Modifier
                     .fillMaxSize()
                     .background(culoareHartie)
+                    .then(
+                        if (esteText && intensitateTextura > 0f)
+                            Modifier.texturaPeste(texturaPagina, intensitateTextura)
+                        else Modifier
+                    )
             ) {
                 when (continut) {
                     is Continut.Litera -> PaginaText(
@@ -306,15 +321,17 @@ private fun PaginiCarte(
                     else -> {}
                 }
                 if (esteText) {
+                    // umbra cotorului in stanga, marginea rasfoita in dreapta
                     Box(
                         Modifier
                             .fillMaxSize()
                             .background(
                                 Brush.horizontalGradient(
-                                    0f to Color.Black.copy(alpha = 0.07f),
-                                    0.05f to Color.Transparent,
-                                    0.95f to Color.Transparent,
-                                    1f to Color.Black.copy(alpha = 0.05f)
+                                    0f to Color.Black.copy(alpha = 0.11f),
+                                    0.05f to Color.Black.copy(alpha = 0.03f),
+                                    0.10f to Color.Transparent,
+                                    0.94f to Color.Transparent,
+                                    1f to Color.Black.copy(alpha = 0.07f)
                                 )
                             )
                     )
@@ -341,7 +358,9 @@ private fun PaginiCarte(
                     Modifier
                         .align(Alignment.TopCenter)
                         .fillMaxWidth()
-                        .background(Noapte.copy(alpha = 0.94f))
+                        .background(Noapte)
+                        .textura(panza, 0.30f)
+                        .background(Noapte.copy(alpha = 0.72f))
                         .systemBarsPadding()
                         .padding(horizontal = 14.dp, vertical = 12.dp),
                     verticalAlignment = Alignment.CenterVertically
@@ -385,7 +404,9 @@ private fun PaginiCarte(
                     Modifier
                         .align(Alignment.BottomCenter)
                         .fillMaxWidth()
-                        .background(Noapte.copy(alpha = 0.94f))
+                        .background(Noapte)
+                        .textura(panza, 0.30f)
+                        .background(Noapte.copy(alpha = 0.72f))
                         .systemBarsPadding()
                         .padding(horizontal = 18.dp, vertical = 12.dp)
                 ) {
@@ -528,6 +549,8 @@ private fun PaginiCarte(
         )
     }
 }
+
+private fun Color.umbraUsoara() = Color(red * 0.95f, green * 0.94f, blue * 0.92f, alpha)
 
 @Composable
 private fun ButonBara(icon: ImageVector, eticheta: String, activ: Boolean, onClick: () -> Unit) {
