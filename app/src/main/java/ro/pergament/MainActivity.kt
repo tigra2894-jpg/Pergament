@@ -2,7 +2,9 @@ package ro.pergament
 
 import android.net.Uri
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
@@ -23,6 +25,7 @@ import kotlinx.coroutines.withContext
 import ro.pergament.data.Biblioteca
 import ro.pergament.data.Carte
 import ro.pergament.data.Import
+import ro.pergament.data.Rafturi
 import ro.pergament.data.Setari
 import ro.pergament.data.SetariStore
 import ro.pergament.ui.EcranBiblioteca
@@ -42,6 +45,16 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+}
+
+/**
+ * Amprenta unei carti: titlul fara diacritice, spatii si semne,
+ * plus formatul si numarul de pagini. Doua fisiere cu aceeasi amprenta
+ * sunt aceeasi carte, chiar daca stau in foldere diferite.
+ */
+private fun amprenta(c: Carte): String {
+    val t = Rafturi.faraDiacritice(c.titlu).replace(Regex("[^a-z0-9]"), "")
+    return t + "|" + c.format + "|" + c.totalPagini
 }
 
 @Composable
@@ -66,30 +79,79 @@ fun Aplicatia() {
         scop.launch(Dispatchers.IO) { Biblioteca.salveaza(ctx, lista) }
     }
 
+    fun stergeFisiereLegate(c: Carte) {
+        scop.launch(Dispatchers.IO) {
+            try {
+                c.coperta?.let { File(it).delete() }
+                File(ctx.filesDir, "texte/${c.id}.txt").delete()
+                File(ctx.cacheDir, "cbz/${c.id}").deleteRecursively()
+            } catch (e: Exception) {
+            }
+        }
+    }
+
     val selector = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenMultipleDocuments()
     ) { uriuri: List<Uri> ->
         if (uriuri.isNotEmpty()) {
             seIncarca = true
             scop.launch {
-                val noi = withContext(Dispatchers.IO) {
-                    uriuri.mapNotNull { u ->
-                        try {
+                val existenteUri = carti.map { it.uri }.toMutableSet()
+                val existenteAmprente = carti.map { amprenta(it) }.toMutableSet()
+                val noi = mutableListOf<Carte>()
+                var dubluri = 0
+
+                withContext(Dispatchers.IO) {
+                    for (u in uriuri) {
+                        if (existenteUri.contains(u.toString())) {
+                            dubluri++
+                            continue
+                        }
+                        val c = try {
                             Import.adauga(ctx, u)
                         } catch (e: Exception) {
                             null
+                        } ?: continue
+
+                        val a = amprenta(c)
+                        if (existenteAmprente.contains(a)) {
+                            dubluri++
+                            try {
+                                c.coperta?.let { File(it).delete() }
+                            } catch (e: Exception) {
+                            }
+                            continue
                         }
+                        existenteUri.add(c.uri)
+                        existenteAmprente.add(a)
+                        noi.add(c)
                     }
                 }
-                val existente = carti.map { it.uri }.toSet()
-                val filtrate = noi.filter { !existente.contains(it.uri) }
-                salveaza(carti + filtrate)
+
+                salveaza(carti + noi)
                 seIncarca = false
+
+                val mesaj = when {
+                    noi.isEmpty() && dubluri > 0 ->
+                        if (dubluri == 1) "Cartea era deja în bibliotecă."
+                        else "Toate cele $dubluri cărți erau deja în bibliotecă."
+                    dubluri > 0 ->
+                        "Am adăugat ${noi.size}. " +
+                                (if (dubluri == 1) "Una era deja pe raft." else "$dubluri erau deja pe raft.")
+                    noi.size == 1 -> "Am adăugat o carte."
+                    noi.size > 1 -> "Am adăugat ${noi.size} cărți."
+                    else -> null
+                }
+                if (mesaj != null) Toast.makeText(ctx, mesaj, Toast.LENGTH_SHORT).show()
             }
         }
     }
 
     val carteDeschisa = carti.firstOrNull { it.id == deschisa }
+
+    BackHandler(enabled = carteDeschisa != null) {
+        deschisa = null
+    }
 
     if (carteDeschisa == null) {
         EcranBiblioteca(
@@ -109,14 +171,7 @@ fun Aplicatia() {
                 )
             },
             onSterge = { c ->
-                c.coperta?.let { cale ->
-                    scop.launch(Dispatchers.IO) {
-                        try {
-                            File(cale).delete()
-                        } catch (e: Exception) {
-                        }
-                    }
-                }
+                stergeFisiereLegate(c)
                 salveaza(carti.filter { it.id != c.id })
             },
             onFavorita = { c ->
