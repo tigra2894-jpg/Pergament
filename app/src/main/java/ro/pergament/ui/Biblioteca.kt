@@ -56,13 +56,11 @@ import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 
-private val MODURI = listOf("Rafturi", "Vitrină", "Cronologic", "Catalog")
+private val MODURI = listOf("Rafturi", "Vitrină", "Recente", "Catalog")
 private val SORTARI = listOf("Adăugare", "Titlu", "Autor", "Citit")
 
-private val SPATIU_JOS = 120.dp
+private val SPATIU_JOS = 150.dp
 private val LATIME_CARTE = 108.dp
-// inaltimea copertii: 108 / 0.66 = 163.6dp; scandura incepe putin mai sus
-// ca sa para ca stau cartile pe ea
 private val POZITIE_SCANDURA = 161.dp
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -105,10 +103,10 @@ fun EcranBiblioteca(
             .background(
                 Brush.verticalGradient(
                     listOf(
-                        Noapte.copy(alpha = 0.70f),
-                        Noapte.copy(alpha = 0.45f),
-                        Noapte.copy(alpha = 0.55f),
-                        Noapte.copy(alpha = 0.82f)
+                        Noapte.copy(alpha = 0.90f),
+                        Noapte.copy(alpha = 0.76f),
+                        Noapte.copy(alpha = 0.82f),
+                        Noapte.copy(alpha = 0.95f)
                     )
                 )
             )
@@ -262,7 +260,7 @@ private fun Comutator(
     Row(
         Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp)
+            .padding(horizontal = 14.dp)
             .padding(top = if (mic) 0.dp else 12.dp),
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
@@ -547,7 +545,6 @@ private fun Raft(
         Spacer(Modifier.height(12.dp))
 
         Box(Modifier.fillMaxWidth()) {
-            // scandura sta in spate, cartile stau pe ea
             ScanduraRaft(Modifier.padding(top = POZITIE_SCANDURA))
 
             LazyRow(
@@ -578,7 +575,6 @@ private fun Raft(
                                 )
                             }
                         }
-                        // loc pentru grosimea scandurii
                         Spacer(Modifier.height(20.dp))
                         BaraProgres(carte)
                         Spacer(Modifier.height(6.dp))
