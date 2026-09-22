@@ -4,6 +4,7 @@ import android.content.Context
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
+import java.util.Calendar
 
 data class Notita(val pagina: Int, val text: String, val creat: Long)
 
@@ -114,8 +115,24 @@ data class Setari(
     val tema: Int = 0,
     val intoarcereCurl: Boolean = true,
     val taiePdf: Boolean = true,
-    val pdfCaText: Boolean = true
-)
+    val pdfCaText: Boolean = true,
+    // confort
+    val ecranAprins: Boolean = true,
+    val avansAutomat: Boolean = true,
+    val luminozitate: Float = -1f,      // -1 inseamna "cat are telefonul"
+    val noapteAutomat: Boolean = false,
+    val oraNoapte: Int = 21,
+    val oraZi: Int = 7
+) {
+    /** Tema care trebuie folosita acum, tinand cont de ora daca e pornit modul automat. */
+    fun temaAcum(): Int {
+        if (!noapteAutomat) return tema
+        val h = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
+        val eNoapte = if (oraNoapte > oraZi) h >= oraNoapte || h < oraZi
+        else h in oraNoapte until oraZi
+        return if (eNoapte) 3 else tema
+    }
+}
 
 object SetariStore {
     private fun fisier(ctx: Context) = File(ctx.filesDir, "setari.json")
@@ -132,7 +149,13 @@ object SetariStore {
                 tema = o.optInt("tema", 0),
                 intoarcereCurl = o.optBoolean("intoarcereCurl", true),
                 taiePdf = o.optBoolean("taiePdf", true),
-                pdfCaText = o.optBoolean("pdfCaText", true)
+                pdfCaText = o.optBoolean("pdfCaText", true),
+                ecranAprins = o.optBoolean("ecranAprins", true),
+                avansAutomat = o.optBoolean("avansAutomat", true),
+                luminozitate = o.optDouble("luminozitate", -1.0).toFloat(),
+                noapteAutomat = o.optBoolean("noapteAutomat", false),
+                oraNoapte = o.optInt("oraNoapte", 21),
+                oraZi = o.optInt("oraZi", 7)
             )
         } catch (e: Exception) {
             Setari()
@@ -149,6 +172,12 @@ object SetariStore {
             o.put("intoarcereCurl", s.intoarcereCurl)
             o.put("taiePdf", s.taiePdf)
             o.put("pdfCaText", s.pdfCaText)
+            o.put("ecranAprins", s.ecranAprins)
+            o.put("avansAutomat", s.avansAutomat)
+            o.put("luminozitate", s.luminozitate.toDouble())
+            o.put("noapteAutomat", s.noapteAutomat)
+            o.put("oraNoapte", s.oraNoapte)
+            o.put("oraZi", s.oraZi)
             fisier(ctx).writeText(o.toString())
         } catch (e: Exception) {
         }
