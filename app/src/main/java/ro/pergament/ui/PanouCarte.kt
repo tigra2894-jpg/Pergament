@@ -2,7 +2,7 @@ package ro.pergament.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -46,6 +46,7 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -119,7 +120,9 @@ fun PanouCarte(
         Modifier
             .fillMaxSize()
             .background(Color.Black.copy(alpha = 0.55f))
-            .pointerInput(Unit) { detectTapGesturesSimplu { onInchide() } }
+            .pointerInput(Unit) {
+                detectTapGestures { onInchide() }
+            }
     ) {
         Column(
             Modifier
@@ -127,7 +130,9 @@ fun PanouCarte(
                 .fillMaxHeight()
                 .fillMaxWidth(0.88f)
                 .background(Lemn)
-                .pointerInput(Unit) { detectTapGesturesSimplu { } }
+                .pointerInput(Unit) {
+                    detectTapGestures { }
+                }
                 .systemBarsPadding()
         ) {
             Row(
@@ -229,7 +234,7 @@ private fun FilaCuprins(
         items(capitole.size) { i ->
             val c = capitole[i]
             val activ = i == indexCurent
-            Column(
+            Row(
                 Modifier
                     .fillMaxWidth()
                     .clickable { onSari(c.pagina) }
@@ -237,26 +242,25 @@ private fun FilaCuprins(
                     .padding(
                         start = if (c.nivel == 0) 18.dp else 36.dp,
                         end = 18.dp, top = 12.dp, bottom = 12.dp
-                    )
+                    ),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        c.titlu,
-                        color = if (activ) Aur else Pergam.copy(alpha = 0.92f),
-                        fontFamily = FontFamily.Serif,
-                        fontWeight = if (c.nivel == 0) FontWeight.Medium else FontWeight.Normal,
-                        fontSize = if (c.nivel == 0) 16.sp else 14.sp,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f)
-                    )
-                    Spacer(Modifier.width(10.dp))
-                    Text(
-                        "${c.pagina + 1}",
-                        color = AurStins,
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                }
+                Text(
+                    c.titlu,
+                    color = if (activ) Aur else Pergam.copy(alpha = 0.92f),
+                    fontFamily = FontFamily.Serif,
+                    fontWeight = if (c.nivel == 0) FontWeight.Medium else FontWeight.Normal,
+                    fontSize = if (c.nivel == 0) 16.sp else 14.sp,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f)
+                )
+                Spacer(Modifier.width(10.dp))
+                Text(
+                    "${c.pagina + 1}",
+                    color = AurStins,
+                    style = MaterialTheme.typography.bodyMedium
+                )
             }
             Linie()
         }
@@ -490,13 +494,7 @@ private fun Gol(mesaj: String) {
             mesaj,
             color = PergamStins,
             style = MaterialTheme.typography.bodyMedium,
-            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+            textAlign = TextAlign.Center
         )
     }
-}
-
-private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.detectTapGesturesSimplu(
-    onTap: () -> Unit
-) {
-    androidx.compose.foundation.gestures.detectTapGestures { onTap() }
 }
