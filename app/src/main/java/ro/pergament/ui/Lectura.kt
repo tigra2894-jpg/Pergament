@@ -41,8 +41,10 @@ import androidx.compose.material.icons.filled.CropFree
 import androidx.compose.material.icons.filled.EditNote
 import androidx.compose.material.icons.filled.HelpOutline
 import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.ListAlt
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.TextFields
 import androidx.compose.material.icons.filled.ZoomIn
@@ -60,6 +62,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -102,6 +105,7 @@ fun EcranLectura(
     onProgres: (Int, Int) -> Unit,
     onSemn: (Int) -> Unit,
     onNotita: (Notita) -> Unit,
+    onStergeNotita: (Notita) -> Unit,
     onInapoi: () -> Unit
 ) {
     val ctx = LocalContext.current
@@ -199,7 +203,7 @@ fun EcranLectura(
         } else {
             PaginiCarte(
                 carte, c, setari, tema, onSetari,
-                onProgres, onSemn, onNotita, onInapoi
+                onProgres, onSemn, onNotita, onStergeNotita, onInapoi
             )
         }
     }
@@ -215,6 +219,7 @@ private fun PaginiCarte(
     onProgres: (Int, Int) -> Unit,
     onSemn: (Int) -> Unit,
     onNotita: (Notita) -> Unit,
+    onStergeNotita: (Notita) -> Unit,
     onInapoi: () -> Unit
 ) {
     val ctx = LocalContext.current
@@ -225,15 +230,15 @@ private fun PaginiCarte(
     val esteImagini = continut is Continut.Imagini
     val esteText = continut is Continut.Litera
     val estePdfText = continut is Continut.Litera && continut.dinPdf
+    val paginiText = if (continut is Continut.Litera) continut.pagini else null
     val prefs = remember { ctx.getSharedPreferences("pergament", Context.MODE_PRIVATE) }
 
-    // textura hartiei: pergament pentru temele calde, hartie pentru cele reci
     val texturaPagina = if (setari.tema == 1) texturaHartie() else texturaPergament()
     val intensitateTextura = when (setari.tema) {
-        0 -> 0.85f   // Pergament
-        1 -> 0.55f   // Hartie
-        2 -> 0.30f   // Seara
-        else -> 0f   // Noapte: fara textura, ecran curat
+        0 -> 0.85f
+        1 -> 0.55f
+        2 -> 0.30f
+        else -> 0f
     }
     val panza = texturaPanza()
 
@@ -252,6 +257,7 @@ private fun PaginiCarte(
     var textNotita by remember { mutableStateOf("") }
     var marire by remember { mutableStateOf(false) }
     var ghid by remember { mutableStateOf(!prefs.getBoolean("ghid_vazut", false)) }
+    var panou by remember { mutableIntStateOf(-1) }
 
     var tts by remember { mutableStateOf<TextToSpeech?>(null) }
     var citesteCuVoce by remember { mutableStateOf(false) }
@@ -321,7 +327,6 @@ private fun PaginiCarte(
                     else -> {}
                 }
                 if (esteText) {
-                    // umbra cotorului in stanga, marginea rasfoita in dreapta
                     Box(
                         Modifier
                             .fillMaxSize()
@@ -339,7 +344,7 @@ private fun PaginiCarte(
             }
         }
 
-        if (!bareVizibile && !marire && !ghid) {
+        if (!bareVizibile && !marire && !ghid && panou < 0) {
             if (stare.pagina > 0) {
                 Sageata(Modifier.align(Alignment.CenterStart), true) {
                     scop.launch { stare.inapoi() }
@@ -362,7 +367,7 @@ private fun PaginiCarte(
                         .textura(panza, 0.30f)
                         .background(Noapte.copy(alpha = 0.72f))
                         .systemBarsPadding()
-                        .padding(horizontal = 14.dp, vertical = 12.dp),
+                        .padding(horizontal = 12.dp, vertical = 12.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Icon(
@@ -371,7 +376,7 @@ private fun PaginiCarte(
                             .size(24.dp)
                             .clickable { onInapoi() }
                     )
-                    Spacer(Modifier.width(14.dp))
+                    Spacer(Modifier.width(12.dp))
                     Text(
                         carte.titlu,
                         color = Pergam,
@@ -379,6 +384,16 @@ private fun PaginiCarte(
                         maxLines = 1,
                         modifier = Modifier.weight(1f)
                     )
+                    Icon(
+                        Icons.Filled.Search, "Caută", tint = Pergam,
+                        modifier = Modifier
+                            .size(22.dp)
+                            .clickable {
+                                bareVizibile = false
+                                panou = 1
+                            }
+                    )
+                    Spacer(Modifier.width(16.dp))
                     Icon(
                         Icons.Filled.HelpOutline, "Cum se folosește", tint = PergamStins,
                         modifier = Modifier
@@ -408,7 +423,7 @@ private fun PaginiCarte(
                         .textura(panza, 0.30f)
                         .background(Noapte.copy(alpha = 0.72f))
                         .systemBarsPadding()
-                        .padding(horizontal = 18.dp, vertical = 12.dp)
+                        .padding(horizontal = 12.dp, vertical = 12.dp)
                 ) {
                     Text(
                         "Pagina ${stare.pagina + 1} din $total",
@@ -429,6 +444,10 @@ private fun PaginiCarte(
                         Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceEvenly
                     ) {
+                        ButonBara(Icons.Filled.ListAlt, "Cuprins", false) {
+                            bareVizibile = false
+                            panou = 0
+                        }
                         if (esteText) {
                             ButonBara(Icons.Filled.TextFields, "Litere", panouSetari) {
                                 panouSetari = !panouSetari
@@ -492,6 +511,22 @@ private fun PaginiCarte(
 
         if (marire) {
             ZoomPagina(continut, stare.pagina, setari.taiePdf) { marire = false }
+        }
+
+        if (panou >= 0) {
+            PanouCarte(
+                carte = carte,
+                pagini = paginiText,
+                paginaCurenta = stare.pagina,
+                filaInitiala = panou,
+                onSari = { p ->
+                    stare.sari(p)
+                    panou = -1
+                },
+                onStergeSemn = { p -> onSemn(p) },
+                onStergeNotita = { n -> onStergeNotita(n) },
+                onInchide = { panou = -1 }
+            )
         }
 
         if (ghid) {
@@ -558,10 +593,10 @@ private fun ButonBara(icon: ImageVector, eticheta: String, activ: Boolean, onCli
         Modifier
             .clip(RoundedCornerShape(3.dp))
             .clickable { onClick() }
-            .padding(horizontal = 6.dp, vertical = 4.dp),
+            .padding(horizontal = 5.dp, vertical = 4.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Icon(icon, eticheta, tint = if (activ) Aur else Pergam, modifier = Modifier.size(24.dp))
+        Icon(icon, eticheta, tint = if (activ) Aur else Pergam, modifier = Modifier.size(23.dp))
         Spacer(Modifier.height(3.dp))
         Text(
             eticheta,
