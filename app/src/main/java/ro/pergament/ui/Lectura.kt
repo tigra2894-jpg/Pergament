@@ -31,6 +31,7 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Article
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.BookmarkBorder
 import androidx.compose.material.icons.filled.ChevronLeft
@@ -39,6 +40,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.CropFree
 import androidx.compose.material.icons.filled.EditNote
 import androidx.compose.material.icons.filled.HelpOutline
+import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Stop
@@ -47,6 +49,7 @@ import androidx.compose.material.icons.filled.ZoomIn
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
@@ -89,6 +92,7 @@ import ro.pergament.data.Setari
 import ro.pergament.reader.Cititor
 import ro.pergament.reader.Continut
 import java.util.Locale
+import kotlin.math.roundToInt
 
 @Composable
 fun EcranLectura(
@@ -102,14 +106,18 @@ fun EcranLectura(
 ) {
     val ctx = LocalContext.current
     var continut by remember { mutableStateOf<Continut?>(null) }
+    var pregatire by remember { mutableFloatStateOf(-1f) }
     val caractere = remember(setari.marimeText) {
         (1500f * (18f / setari.marimeText) * (18f / setari.marimeText)).toInt()
     }
 
-    LaunchedEffect(carte.id, caractere) {
+    LaunchedEffect(carte.id, caractere, setari.pdfCaText) {
         continut?.inchide()
         continut = null
-        val c = withContext(Dispatchers.IO) { Cititor.incarca(ctx, carte, caractere) }
+        pregatire = -1f
+        val c = withContext(Dispatchers.IO) {
+            Cititor.incarca(ctx, carte, caractere, setari.pdfCaText) { p -> pregatire = p }
+        }
         continut = c
     }
 
@@ -126,8 +134,43 @@ fun EcranLectura(
     ) {
         val c = continut
         if (c == null) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator(color = tema.accent, strokeWidth = 1.5.dp)
+            Column(
+                Modifier
+                    .fillMaxSize()
+                    .padding(36.dp),
+                verticalArrangement = Arrangement.Center,
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                if (carte.format == "PDF" && setari.pdfCaText && pregatire in 0f..0.999f) {
+                    Text(
+                        "Pregătesc cartea pentru citit",
+                        color = tema.cerneala,
+                        style = MaterialTheme.typography.titleLarge,
+                        textAlign = TextAlign.Center
+                    )
+                    Spacer(Modifier.height(22.dp))
+                    LinearProgressIndicator(
+                        progress = { pregatire },
+                        modifier = Modifier.width(220.dp),
+                        color = tema.accent,
+                        trackColor = tema.accent.copy(alpha = 0.2f)
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    Text(
+                        "${(pregatire * 100).toInt()}%",
+                        color = tema.accent,
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                    Spacer(Modifier.height(18.dp))
+                    Text(
+                        "Se face doar prima dată. Data viitoare cartea se deschide imediat.",
+                        color = tema.cerneala.copy(alpha = 0.7f),
+                        style = MaterialTheme.typography.bodyMedium,
+                        textAlign = TextAlign.Center
+                    )
+                } else {
+                    CircularProgressIndicator(color = tema.accent, strokeWidth = 1.5.dp)
+                }
             }
         } else if (c is Continut.Eroare) {
             Column(
@@ -144,6 +187,11 @@ fun EcranLectura(
                     style = MaterialTheme.typography.titleLarge
                 )
                 Spacer(Modifier.height(20.dp))
+                if (carte.format == "PDF" && setari.pdfCaText) {
+                    TextButton(onClick = { onSetari(setari.copy(pdfCaText = false)) }) {
+                        Text("Deschide pagina originală", color = tema.accent)
+                    }
+                }
                 TextButton(onClick = onInapoi) {
                     Text("Înapoi la bibliotecă", color = tema.accent)
                 }
@@ -173,12 +221,19 @@ private fun PaginiCarte(
     val scop = rememberCoroutineScope()
     val total = continut.nrPaginiTotal
     val estePdf = continut is Continut.Pdf
+    val esteScanat = continut is Continut.Pdf && continut.scanat
     val esteImagini = continut is Continut.Imagini
     val esteText = continut is Continut.Litera
+    val estePdfText = continut is Continut.Litera && continut.dinPdf
     val prefs = remember { ctx.getSharedPreferences("pergament", Context.MODE_PRIVATE) }
 
-    val stare = remember(total) {
-        StareRasfoire(carte.paginaCurenta.coerceIn(0, (total - 1).coerceAtLeast(0)), total)
+    val stare = remember(continut) {
+        val t = carte.totalPagini
+        val p = carte.paginaCurenta
+        val pornire = if (t > 1 && total > 1 && t != total)
+            ((p.toFloat() / (t - 1)) * (total - 1)).roundToInt()
+        else p
+        StareRasfoire(pornire.coerceIn(0, (total - 1).coerceAtLeast(0)), total)
     }
 
     var bareVizibile by remember { mutableStateOf(false) }
@@ -358,6 +413,16 @@ private fun PaginiCarte(
                                 panouSetari = !panouSetari
                             }
                         }
+                        if (estePdfText) {
+                            ButonBara(Icons.Filled.Image, "Original", false) {
+                                onSetari(setari.copy(pdfCaText = false))
+                            }
+                        }
+                        if (estePdf && !esteScanat) {
+                            ButonBara(Icons.Filled.Article, "Text", false) {
+                                onSetari(setari.copy(pdfCaText = true))
+                            }
+                        }
                         if (estePdf) {
                             ButonBara(Icons.Filled.CropFree, "Margini", setari.taiePdf) {
                                 onSetari(setari.copy(taiePdf = !setari.taiePdf))
@@ -385,6 +450,15 @@ private fun PaginiCarte(
                                 } else tts?.stop()
                             }
                         }
+                    }
+
+                    if (esteScanat) {
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            "Carte scanată: paginile sunt fotografii, textul nu poate fi scos. Rămâne pagina originală.",
+                            color = PergamStins,
+                            style = MaterialTheme.typography.bodyMedium
+                        )
                     }
 
                     if (panouSetari && esteText) {
@@ -461,7 +535,7 @@ private fun ButonBara(icon: ImageVector, eticheta: String, activ: Boolean, onCli
         Modifier
             .clip(RoundedCornerShape(3.dp))
             .clickable { onClick() }
-            .padding(horizontal = 8.dp, vertical = 4.dp),
+            .padding(horizontal = 6.dp, vertical = 4.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Icon(icon, eticheta, tint = if (activ) Aur else Pergam, modifier = Modifier.size(24.dp))
