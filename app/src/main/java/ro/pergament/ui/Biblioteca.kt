@@ -59,8 +59,11 @@ import java.util.Locale
 private val MODURI = listOf("Rafturi", "Vitrină", "Cronologic", "Catalog")
 private val SORTARI = listOf("Adăugare", "Titlu", "Autor", "Citit")
 
-// spatiul lasat jos ca butonul auriu sa nu acopere ultima carte
 private val SPATIU_JOS = 120.dp
+private val LATIME_CARTE = 108.dp
+// inaltimea copertii: 108 / 0.66 = 163.6dp; scandura incepe putin mai sus
+// ca sa para ca stau cartile pe ea
+private val POZITIE_SCANDURA = 161.dp
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -76,6 +79,7 @@ fun EcranBiblioteca(
     var meniuPentru by remember { mutableStateOf<Carte?>(null) }
     var mod by remember { mutableIntStateOf(0) }
     var sortare by remember { mutableIntStateOf(0) }
+    val piele = texturaPiele()
 
     val filtrate = remember(carti, cautare, sortare) {
         val baza = if (cautare.isBlank()) carti else {
@@ -96,7 +100,18 @@ fun EcranBiblioteca(
     Box(
         Modifier
             .fillMaxSize()
-            .background(Brush.verticalGradient(listOf(Noapte, Color(0xFF12100D), Noapte)))
+            .background(Noapte)
+            .textura(piele)
+            .background(
+                Brush.verticalGradient(
+                    listOf(
+                        Noapte.copy(alpha = 0.70f),
+                        Noapte.copy(alpha = 0.45f),
+                        Noapte.copy(alpha = 0.55f),
+                        Noapte.copy(alpha = 0.82f)
+                    )
+                )
+            )
     ) {
         Column(
             Modifier
@@ -129,7 +144,7 @@ fun EcranBiblioteca(
             }
 
             if (carti.isEmpty() && !seIncarca) {
-                BibliotecaGoala(onAdauga)
+                BibliotecaGoala()
             } else if (filtrate.isEmpty() && carti.isNotEmpty()) {
                 Text(
                     "Nicio carte nu se potrivește cu „$cautare”.",
@@ -166,7 +181,6 @@ fun EcranBiblioteca(
             }
         }
 
-        // butonul de adaugare, jos pe mijloc, pe o banda intunecata
         Box(
             Modifier
                 .align(Alignment.BottomCenter)
@@ -356,7 +370,6 @@ private fun ModVitrina(
     }
 }
 
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun ModCronologic(
     carti: List<Carte>,
@@ -371,51 +384,7 @@ private fun ModCronologic(
     LazyColumn(contentPadding = PaddingValues(bottom = SPATIU_JOS)) {
         items(chei.size) { i ->
             val cheie = chei[i]
-            Column(Modifier.padding(top = 18.dp)) {
-                Row(
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 22.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(cheie, style = MaterialTheme.typography.headlineMedium, color = Pergam)
-                    Spacer(Modifier.width(12.dp))
-                    Box(
-                        Modifier
-                            .weight(1f)
-                            .height(0.7.dp)
-                            .background(AurStins.copy(alpha = 0.4f))
-                    )
-                }
-                Spacer(Modifier.height(12.dp))
-                LazyRow(
-                    contentPadding = PaddingValues(start = 22.dp, end = 22.dp),
-                    horizontalArrangement = Arrangement.spacedBy(14.dp)
-                ) {
-                    items(grupate[cheie] ?: emptyList()) { carte ->
-                        Column(Modifier.width(108.dp)) {
-                            Coperta(
-                                carte = carte,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .aspectRatio(0.66f)
-                                    .combinedClickable(
-                                        onClick = { onDeschide(carte) },
-                                        onLongClick = { onMeniu(carte) }
-                                    )
-                            )
-                            Spacer(Modifier.height(6.dp))
-                            Text(
-                                carte.titlu,
-                                style = MaterialTheme.typography.titleMedium,
-                                color = Pergam.copy(alpha = 0.9f),
-                                maxLines = 2,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
-                    }
-                }
-            }
+            Raft(cheie, grupate[cheie] ?: emptyList(), onDeschide, onMeniu, arataNumar = false)
         }
     }
 }
@@ -523,7 +492,7 @@ private fun BaraCautare(valoare: String, onSchimbare: (String) -> Unit) {
             .padding(horizontal = 22.dp, vertical = 14.dp)
             .fillMaxWidth()
             .clip(RoundedCornerShape(3.dp))
-            .background(LemnCald)
+            .background(Noapte.copy(alpha = 0.55f))
             .padding(horizontal = 14.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -555,12 +524,13 @@ private fun Raft(
     nume: String,
     carti: List<Carte>,
     onDeschide: (Carte) -> Unit,
-    onMeniu: (Carte) -> Unit
+    onMeniu: (Carte) -> Unit,
+    arataNumar: Boolean = true
 ) {
     Column(
         Modifier
             .fillMaxWidth()
-            .padding(top = 20.dp)
+            .padding(top = 22.dp)
     ) {
         Row(
             modifier = Modifier
@@ -570,76 +540,73 @@ private fun Raft(
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Text(nume, style = MaterialTheme.typography.headlineMedium, color = Pergam)
-            Text("${carti.size}", style = MaterialTheme.typography.bodyMedium, color = AurStins)
+            if (arataNumar) {
+                Text("${carti.size}", style = MaterialTheme.typography.bodyMedium, color = AurStins)
+            }
         }
         Spacer(Modifier.height(12.dp))
-        LazyRow(
-            modifier = Modifier.fillMaxWidth(),
-            contentPadding = PaddingValues(start = 22.dp, end = 22.dp),
-            horizontalArrangement = Arrangement.spacedBy(14.dp)
-        ) {
-            items(carti) { carte ->
-                Column(modifier = Modifier.width(108.dp)) {
-                    Box {
-                        Coperta(
-                            carte = carte,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .aspectRatio(0.66f)
-                                .combinedClickable(
-                                    onClick = { onDeschide(carte) },
-                                    onLongClick = { onMeniu(carte) }
-                                )
-                        )
-                        if (carte.favorita) {
-                            Icon(
-                                Icons.Filled.Star, null, tint = Aur,
+
+        Box(Modifier.fillMaxWidth()) {
+            // scandura sta in spate, cartile stau pe ea
+            ScanduraRaft(Modifier.padding(top = POZITIE_SCANDURA))
+
+            LazyRow(
+                modifier = Modifier.fillMaxWidth(),
+                contentPadding = PaddingValues(start = 22.dp, end = 22.dp),
+                horizontalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                items(carti) { carte ->
+                    Column(modifier = Modifier.width(LATIME_CARTE)) {
+                        Box {
+                            Coperta(
+                                carte = carte,
                                 modifier = Modifier
-                                    .align(Alignment.TopEnd)
-                                    .padding(5.dp)
-                                    .size(14.dp)
+                                    .fillMaxWidth()
+                                    .aspectRatio(0.66f)
+                                    .combinedClickable(
+                                        onClick = { onDeschide(carte) },
+                                        onLongClick = { onMeniu(carte) }
+                                    )
                             )
+                            if (carte.favorita) {
+                                Icon(
+                                    Icons.Filled.Star, null, tint = Aur,
+                                    modifier = Modifier
+                                        .align(Alignment.TopEnd)
+                                        .padding(5.dp)
+                                        .size(14.dp)
+                                )
+                            }
                         }
-                    }
-                    BaraProgres(carte)
-                    Spacer(Modifier.height(7.dp))
-                    Text(
-                        carte.titlu,
-                        style = MaterialTheme.typography.titleMedium,
-                        color = Pergam.copy(alpha = 0.92f),
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    if (carte.autor.isNotBlank()) {
+                        // loc pentru grosimea scandurii
+                        Spacer(Modifier.height(20.dp))
+                        BaraProgres(carte)
+                        Spacer(Modifier.height(6.dp))
                         Text(
-                            carte.autor,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = PergamStins,
-                            maxLines = 1,
+                            carte.titlu,
+                            style = MaterialTheme.typography.titleMedium,
+                            color = Pergam.copy(alpha = 0.92f),
+                            maxLines = 2,
                             overflow = TextOverflow.Ellipsis
                         )
+                        if (carte.autor.isNotBlank()) {
+                            Text(
+                                carte.autor,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = PergamStins,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
                     }
                 }
             }
         }
-        Spacer(Modifier.height(10.dp))
-        Box(
-            Modifier
-                .padding(horizontal = 18.dp)
-                .fillMaxWidth()
-                .height(2.dp)
-                .background(
-                    Brush.horizontalGradient(
-                        listOf(Color.Transparent, AurStins.copy(alpha = 0.55f), Color.Transparent)
-                    )
-                )
-        )
     }
 }
 
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun BibliotecaGoala(onAdauga: () -> Unit) {
+private fun BibliotecaGoala() {
     Column(
         modifier = Modifier
             .fillMaxWidth()
