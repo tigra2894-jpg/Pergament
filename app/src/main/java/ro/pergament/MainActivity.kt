@@ -26,10 +26,12 @@ import ro.pergament.data.Biblioteca
 import ro.pergament.data.Carte
 import ro.pergament.data.Import
 import ro.pergament.data.Rafturi
+import ro.pergament.data.Rezerva
 import ro.pergament.data.Setari
 import ro.pergament.data.SetariStore
 import ro.pergament.ui.EcranBiblioteca
 import ro.pergament.ui.EcranLectura
+import ro.pergament.ui.EcranSetari
 import ro.pergament.ui.Noapte
 import ro.pergament.ui.PergamentTheme
 import java.io.File
@@ -60,7 +62,9 @@ fun Aplicatia() {
     var carti by remember { mutableStateOf<List<Carte>>(emptyList()) }
     var setari by remember { mutableStateOf(Setari()) }
     var deschisa by remember { mutableStateOf<String?>(null) }
+    var ecranSetari by remember { mutableStateOf(false) }
     var seIncarca by remember { mutableStateOf(false) }
+    var lucreaza by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         val c = withContext(Dispatchers.IO) { Biblioteca.incarca(ctx) }
@@ -142,84 +146,137 @@ fun Aplicatia() {
         }
     }
 
-    val carteDeschisa = carti.firstOrNull { it.id == deschisa }
-
-    BackHandler(enabled = carteDeschisa != null) {
-        deschisa = null
+    val salvatorCopie = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json")
+    ) { uri: Uri? ->
+        if (uri != null) {
+            lucreaza = true
+            scop.launch {
+                val mesaj = withContext(Dispatchers.IO) {
+                    Rezerva.salveaza(ctx, uri, carti, setari)
+                }
+                lucreaza = false
+                Toast.makeText(ctx, mesaj, Toast.LENGTH_LONG).show()
+            }
+        }
     }
 
-    if (carteDeschisa == null) {
-        EcranBiblioteca(
-            carti = carti,
-            seIncarca = seIncarca,
-            onDeschide = { deschisa = it.id },
-            onAdauga = {
-                selector.launch(
-                    arrayOf(
-                        "application/pdf",
-                        "application/epub+zip",
-                        "text/plain",
-                        "application/zip",
-                        "application/x-cbz",
-                        "application/octet-stream"
-                    )
-                )
-            },
-            onSterge = { c ->
-                stergeFisiereLegate(c)
-                salveaza(carti.filter { it.id != c.id })
-            },
-            onFavorita = { c ->
-                salveaza(carti.map { if (it.id == c.id) it.copy(favorita = !it.favorita) else it })
-            },
-            onModifica = { c, titlu, autor, raft ->
-                salveaza(carti.map {
-                    if (it.id == c.id)
-                        it.copy(titlu = titlu, autor = autor, raft = raft)
-                    else it
-                })
-                Toast.makeText(ctx, "Datele cărții au fost salvate.", Toast.LENGTH_SHORT).show()
+    val cititorCopie = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            lucreaza = true
+            scop.launch {
+                val rez = withContext(Dispatchers.IO) {
+                    Rezerva.restaureaza(ctx, uri, carti)
+                }
+                if (rez.reusit) {
+                    salveaza(rez.carti)
+                    rez.setari?.let { s ->
+                        setari = s
+                        withContext(Dispatchers.IO) { SetariStore.salveaza(ctx, s) }
+                    }
+                }
+                lucreaza = false
+                Toast.makeText(ctx, rez.mesaj, Toast.LENGTH_LONG).show()
             }
-        )
-    } else {
-        EcranLectura(
-            carte = carteDeschisa,
-            setari = setari,
-            onSetari = { s ->
-                setari = s
-                scop.launch(Dispatchers.IO) { SetariStore.salveaza(ctx, s) }
-            },
-            onProgres = { pagina, total ->
-                salveaza(carti.map {
-                    if (it.id == carteDeschisa.id)
-                        it.copy(paginaCurenta = pagina, totalPagini = total)
-                    else it
-                })
-            },
-            onSemn = { pagina ->
-                salveaza(carti.map {
-                    if (it.id == carteDeschisa.id) {
-                        val s = if (it.semne.contains(pagina)) it.semne - pagina
-                        else (it.semne + pagina).sorted()
-                        it.copy(semne = s)
-                    } else it
-                })
-            },
-            onNotita = { n ->
-                salveaza(carti.map {
-                    if (it.id == carteDeschisa.id) it.copy(notite = it.notite + n) else it
-                })
-            },
-            onStergeNotita = { n ->
-                salveaza(carti.map {
-                    if (it.id == carteDeschisa.id)
-                        it.copy(notite = it.notite.filter { x ->
-                            !(x.pagina == n.pagina && x.creat == n.creat && x.text == n.text)
-                        })
-                    else it
-                })
-            },
-            onInapoi = { deschisa = null }
-        )
+        }
+    }
+
+    val carteDeschisa = carti.firstOrNull { it.id == deschisa }
+
+    BackHandler(enabled = carteDeschisa != null || ecranSetari) {
+        if (carteDeschisa != null) deschisa = null else ecranSetari = false
+    }
+
+    when {
+        carteDeschisa != null -> {
+            EcranLectura(
+                carte = carteDeschisa,
+                setari = setari,
+                onSetari = { s ->
+                    setari = s
+                    scop.launch(Dispatchers.IO) { SetariStore.salveaza(ctx, s) }
+                },
+                onProgres = { pagina, total ->
+                    salveaza(carti.map {
+                        if (it.id == carteDeschisa.id)
+                            it.copy(paginaCurenta = pagina, totalPagini = total)
+                        else it
+                    })
+                },
+                onSemn = { pagina ->
+                    salveaza(carti.map {
+                        if (it.id == carteDeschisa.id) {
+                            val s = if (it.semne.contains(pagina)) it.semne - pagina
+                            else (it.semne + pagina).sorted()
+                            it.copy(semne = s)
+                        } else it
+                    })
+                },
+                onNotita = { n ->
+                    salveaza(carti.map {
+                        if (it.id == carteDeschisa.id) it.copy(notite = it.notite + n) else it
+                    })
+                },
+                onStergeNotita = { n ->
+                    salveaza(carti.map {
+                        if (it.id == carteDeschisa.id)
+                            it.copy(notite = it.notite.filter { x ->
+                                !(x.pagina == n.pagina && x.creat == n.creat && x.text == n.text)
+                            })
+                        else it
+                    })
+                },
+                onInapoi = { deschisa = null }
+            )
+        }
+
+        ecranSetari -> {
+            EcranSetari(
+                carti = carti,
+                lucreaza = lucreaza,
+                onSalveazaCopie = { salvatorCopie.launch(Rezerva.numeFisier()) },
+                onRestaureaza = {
+                    cititorCopie.launch(arrayOf("application/json", "text/plain", "*/*"))
+                },
+                onInapoi = { ecranSetari = false }
+            )
+        }
+
+        else -> {
+            EcranBiblioteca(
+                carti = carti,
+                seIncarca = seIncarca,
+                onDeschide = { deschisa = it.id },
+                onAdauga = {
+                    selector.launch(
+                        arrayOf(
+                            "application/pdf",
+                            "application/epub+zip",
+                            "text/plain",
+                            "application/zip",
+                            "application/x-cbz",
+                            "application/octet-stream"
+                        )
+                    )
+                },
+                onSterge = { c ->
+                    stergeFisiereLegate(c)
+                    salveaza(carti.filter { it.id != c.id })
+                },
+                onFavorita = { c ->
+                    salveaza(carti.map { if (it.id == c.id) it.copy(favorita = !it.favorita) else it })
+                },
+                onModifica = { c, titlu, autor, raft ->
+                    salveaza(carti.map {
+                        if (it.id == c.id) it.copy(titlu = titlu, autor = autor, raft = raft)
+                        else it
+                    })
+                    Toast.makeText(ctx, "Datele cărții au fost salvate.", Toast.LENGTH_SHORT).show()
+                },
+                onSetari = { ecranSetari = true }
+            )
+        }
     }
 }
