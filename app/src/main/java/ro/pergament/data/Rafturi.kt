@@ -13,39 +13,46 @@ object Rafturi {
     )
 
     private val cuvinte: List<Pair<String, List<String>>> = listOf(
+        "Religie" to listOf(
+            "biblia", "biblie", "bible", "evanghel", "gospel", "psalm",
+            "rugaciun", "prayer", "ortodox", "crestin", "christian", "christ",
+            "iisus", "isus", "jesus", "dumnezeu", "god's", " god ", "gods ",
+            "heaven", "rai ", "mantuire", "salvation", "credinta", "faith",
+            "biserica", "church", "teolog", "theolog", "sfantul", "sfanta",
+            "saint", "apostol", "profet", "prophet", "coran", "quran",
+            "budism", "buddh", "spiritual", "duhul", "spirit", "ntr ",
+            "noul testament", "vechiul testament", "testament", "thru the bible"
+        ),
         "Limbi străine" to listOf(
             "english", "grammar", "vocabulary", "dictionary", "phrasal",
             "idioms", "deutsch", "italiano", "espanol", "francais",
             "dictionar", "gramatic", "engleza", "germana", "italiana",
             "spaniola", "franceza", "curs de limba", "vocabular", "conversatie",
-            "limba ", "in use", "workbook", "student book", "elementary",
-            "intermediate", "advanced", "beginner"
+            "in use", "workbook", "student book", "elementary",
+            "intermediate", "advanced", "beginner", "ielts", "toefl", "cambridge"
         ),
         "Benzi desenate" to listOf("comic", "manga", "benzi desenate"),
         "Poezie" to listOf(
             "poez", "versuri", "sonet", "balad", "elegii", "lirica",
             "poetry", "poems"
         ),
-        "Religie" to listOf(
-            "biblia", "biblie", "evanghel", "psalm", "rugaciun", "ortodox",
-            "crestin", "teolog", "sfantul", "sfanta", "coran", "budism",
-            "spiritual", "bible", "gospel", "prayer", "zen"
-        ),
         "Filosofie" to listOf(
             "filosof", "filozof", "etica", "metafizic", "logica", "stoic",
             "dialectic", "retoric", "nietzsche", "platon", "aristotel",
             "seneca", "kant", "schopenhauer", "marc aureliu", "epictet",
-            "philosophy", "meditatii", "dreptate"
-        ),
-        "Istorie" to listOf(
-            "istori", "razboi", "imperiu", "dacia", "medieval", "revolut",
-            "cronica", "dinastia", "1848", "1918", "1989", "history",
-            "war", "empire", "antichitate"
+            "philosophy", "meditatii", "dreptate", "curajul de a nu fi"
         ),
         "Psihologie" to listOf(
             "psiholog", "psihic", "mintea", "creier", "emotii", "anxiet",
             "depres", "terapie", "subconstient", "comportament", "freud",
-            "jung", "psychology", "mindset", "habits", "obiceiuri"
+            "jung", "adler", "psychology", "mindset", "habits", "obiceiuri",
+            "fericit", "happiness", "self help", "dezvoltare personala",
+            "incredere in sine", "stima de sine", "curaj"
+        ),
+        "Istorie" to listOf(
+            "istori", "razboi", "imperiu", "dacia", "medieval", "revolut",
+            "cronica", "dinastia", "1848", "1918", "1989", "history",
+            "world war", "empire", "antichitate"
         ),
         "Științe" to listOf(
             "fizica", "chimie", "biolog", "matemat", "astronom", "univers",
@@ -62,7 +69,7 @@ object Rafturi {
         "Afaceri & Bani" to listOf(
             "afaceri", "business", "marketing", "vanzari", "bani", "investit",
             "bursa", "antrepren", "economi", "finant", "contabil",
-            "management", "succes", "milionar", "bogat", "money", "rich",
+            "management", "milionar", "bogat", "money", "rich ",
             "startup", "trading"
         ),
         "Sănătate" to listOf(
@@ -89,7 +96,7 @@ object Rafturi {
         ),
         "Manuale & Ghiduri" to listOf(
             "manual", "ghid", "indrumar", "instructiuni", "lectii",
-            "clasa a", "handbook", "tutorial", "guide"
+            "clasa a", "handbook", "tutorial", "guide", "ted "
         ),
         "Literatură" to listOf(
             "roman", "nuvel", "povestir", "aventur", "dragoste", "politist",
@@ -107,7 +114,8 @@ object Rafturi {
 
     fun detecteaza(titlu: String, autor: String, format: String): String {
         if (format.equals("CBZ", true) || format.equals("CBR", true)) return "Benzi desenate"
-        val t = faraDiacritice("$titlu $autor")
+        // spatii la capete ca sa prindem si cuvinte scurte intregi (" god ", "ntr ")
+        val t = " " + faraDiacritice("$titlu $autor").replace(Regex("[_\\-.]+"), " ") + " "
         for (pereche in cuvinte) {
             for (c in pereche.second) {
                 if (t.contains(c)) return pereche.first
