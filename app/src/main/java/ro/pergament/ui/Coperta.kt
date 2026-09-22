@@ -69,14 +69,26 @@ fun Coperta(carte: Carte, modifier: Modifier = Modifier) {
         } else {
             CopertaGenerata(carte)
         }
+        // cotorul: umbra pe marginea din stanga, lumina fina pe muchie,
+        // umbra usoara pe marginea rasfoita din dreapta
         Canvas(modifier = Modifier.fillMaxSize()) {
             drawRect(
                 brush = Brush.horizontalGradient(
-                    0f to Color.Black.copy(alpha = 0.45f),
-                    0.06f to Color.Black.copy(alpha = 0.10f),
-                    0.10f to Color.Transparent,
-                    0.92f to Color.Transparent,
-                    1f to Color.Black.copy(alpha = 0.25f)
+                    0f to Color.Black.copy(alpha = 0.50f),
+                    0.045f to Color.Black.copy(alpha = 0.16f),
+                    0.07f to Color.White.copy(alpha = 0.07f),
+                    0.12f to Color.Transparent,
+                    0.90f to Color.Transparent,
+                    1f to Color.Black.copy(alpha = 0.30f)
+                )
+            )
+            // lumina care cade de sus, ca de la lampa de deasupra raftului
+            drawRect(
+                brush = Brush.verticalGradient(
+                    0f to Color.White.copy(alpha = 0.10f),
+                    0.25f to Color.Transparent,
+                    0.80f to Color.Transparent,
+                    1f to Color.Black.copy(alpha = 0.22f)
                 )
             )
         }
@@ -85,35 +97,46 @@ fun Coperta(carte: Carte, modifier: Modifier = Modifier) {
 
 @Composable
 private fun CopertaGenerata(carte: Carte) {
+    val panza = texturaPanza()
     val baza = remember(carte.titlu) {
         CuloriCoperti[abs(carte.titlu.hashCode()) % CuloriCoperti.size]
     }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(
                 Brush.linearGradient(
-                    listOf(baza, baza.umbra(0.62f), baza.umbra(0.85f))
+                    listOf(baza, baza.umbra(0.66f), baza.umbra(0.88f))
                 )
             )
+            .texturaPeste(panza, 0.55f)
     ) {
+        // chenar aurit, ca pe coperta unei carti legate
+        Box(
+            Modifier
+                .fillMaxSize()
+                .padding(5.dp)
+                .border(0.6.dp, Aur.copy(alpha = 0.32f), RoundedCornerShape(1.dp))
+        )
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 9.dp, vertical = 12.dp),
+                .padding(horizontal = 11.dp, vertical = 14.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
             Box(
                 Modifier
-                    .fillMaxWidth(0.34f)
-                    .height(0.8.dp)
-                    .background(Aur.copy(alpha = 0.75f))
+                    .fillMaxWidth(0.42f)
+                    .height(0.9.dp)
+                    .background(Aur.copy(alpha = 0.80f))
             )
-            Spacer(Modifier.height(10.dp))
+            Spacer(Modifier.height(11.dp))
             Text(
                 text = carte.titlu,
-                color = Pergam,
+                color = Color(0xFFF6EDD9),
                 textAlign = TextAlign.Center,
                 maxLines = 5,
                 overflow = TextOverflow.Ellipsis,
@@ -122,18 +145,18 @@ private fun CopertaGenerata(carte: Carte) {
                 fontSize = 13.sp,
                 lineHeight = 17.sp
             )
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(9.dp))
             Box(
                 Modifier
-                    .fillMaxWidth(0.34f)
-                    .height(0.8.dp)
-                    .background(Aur.copy(alpha = 0.75f))
+                    .fillMaxWidth(0.42f)
+                    .height(0.9.dp)
+                    .background(Aur.copy(alpha = 0.80f))
             )
             if (carte.autor.isNotBlank()) {
-                Spacer(Modifier.height(12.dp))
+                Spacer(Modifier.height(13.dp))
                 Text(
                     text = carte.autor,
-                    color = Pergam.copy(alpha = 0.72f),
+                    color = Aur.copy(alpha = 0.80f),
                     textAlign = TextAlign.Center,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
@@ -143,14 +166,15 @@ private fun CopertaGenerata(carte: Carte) {
                 )
             }
         }
+
         Text(
             text = carte.format,
-            color = Pergam.copy(alpha = 0.35f),
+            color = Color.White.copy(alpha = 0.26f),
             fontSize = 8.sp,
             fontFamily = FontFamily.SansSerif,
             modifier = Modifier
                 .align(Alignment.BottomEnd)
-                .padding(end = 8.dp, bottom = 6.dp)
+                .padding(end = 9.dp, bottom = 7.dp)
         )
     }
 }
