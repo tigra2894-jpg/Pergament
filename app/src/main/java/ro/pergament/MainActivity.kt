@@ -47,11 +47,6 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-/**
- * Amprenta unei carti: titlul fara diacritice, spatii si semne,
- * plus formatul si numarul de pagini. Doua fisiere cu aceeasi amprenta
- * sunt aceeasi carte, chiar daca stau in foldere diferite.
- */
 private fun amprenta(c: Carte): String {
     val t = Rafturi.faraDiacritice(c.titlu).replace(Regex("[^a-z0-9]"), "")
     return t + "|" + c.format + "|" + c.totalPagini
@@ -205,6 +200,15 @@ fun Aplicatia() {
             onNotita = { n ->
                 salveaza(carti.map {
                     if (it.id == carteDeschisa.id) it.copy(notite = it.notite + n) else it
+                })
+            },
+            onStergeNotita = { n ->
+                salveaza(carti.map {
+                    if (it.id == carteDeschisa.id)
+                        it.copy(notite = it.notite.filter { x ->
+                            !(x.pagina == n.pagina && x.creat == n.creat && x.text == n.text)
+                        })
+                    else it
                 })
             },
             onInapoi = { deschisa = null }
