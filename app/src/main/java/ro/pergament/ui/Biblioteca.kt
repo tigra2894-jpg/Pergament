@@ -2,6 +2,7 @@ package ro.pergament.ui
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -28,6 +29,7 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
@@ -72,7 +74,8 @@ fun EcranBiblioteca(
     onAdauga: () -> Unit,
     onSterge: (Carte) -> Unit,
     onFavorita: (Carte) -> Unit,
-    onModifica: (Carte, String, String, String) -> Unit
+    onModifica: (Carte, String, String, String) -> Unit,
+    onSetari: () -> Unit
 ) {
     var cautare by remember { mutableStateOf("") }
     var meniuPentru by remember { mutableStateOf<Carte?>(null) }
@@ -118,21 +121,37 @@ fun EcranBiblioteca(
                 .fillMaxSize()
                 .systemBarsPadding()
         ) {
-            Column(Modifier.padding(start = 22.dp, end = 22.dp, top = 22.dp)) {
-                Text("Pergament", style = MaterialTheme.typography.displayLarge, color = Pergam)
-                Spacer(Modifier.height(8.dp))
-                Box(
-                    Modifier
-                        .width(72.dp)
-                        .height(1.dp)
-                        .background(Aur.copy(alpha = 0.8f))
-                )
-                Spacer(Modifier.height(10.dp))
-                Text(
-                    text = if (carti.isEmpty()) "Biblioteca ta așteaptă prima carte"
-                    else "${carti.size} volume în bibliotecă",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = PergamStins
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(start = 22.dp, end = 14.dp, top = 22.dp),
+                verticalAlignment = Alignment.Top
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text("Pergament", style = MaterialTheme.typography.displayLarge, color = Pergam)
+                    Spacer(Modifier.height(8.dp))
+                    Box(
+                        Modifier
+                            .width(72.dp)
+                            .height(1.dp)
+                            .background(Aur.copy(alpha = 0.8f))
+                    )
+                    Spacer(Modifier.height(10.dp))
+                    Text(
+                        text = if (carti.isEmpty()) "Biblioteca ta așteaptă prima carte"
+                        else "${carti.size} volume în bibliotecă",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = PergamStins
+                    )
+                }
+                Icon(
+                    Icons.Filled.Settings, "Setări", tint = PergamStins,
+                    modifier = Modifier
+                        .padding(top = 8.dp)
+                        .size(44.dp)
+                        .clip(RoundedCornerShape(22.dp))
+                        .clickable { onSetari() }
+                        .padding(10.dp)
                 )
             }
 
@@ -198,11 +217,16 @@ fun EcranBiblioteca(
                 Modifier
                     .clip(RoundedCornerShape(26.dp))
                     .background(Brush.verticalGradient(listOf(Aur, AurStins)))
-                    .combinedClickable(onClick = onAdauga)
+                    .clickable { onAdauga() }
                     .padding(horizontal = 22.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(Icons.Filled.Add, contentDescription = null, tint = Noapte, modifier = Modifier.size(20.dp))
+                Icon(
+                    Icons.Filled.Add,
+                    contentDescription = null,
+                    tint = Noapte,
+                    modifier = Modifier.size(20.dp)
+                )
                 Spacer(Modifier.width(8.dp))
                 Text("Adaugă cărți", color = Noapte, style = MaterialTheme.typography.titleMedium)
             }
@@ -227,11 +251,17 @@ fun EcranBiblioteca(
                             "Pagina ${c.paginaCurenta + 1} din ${c.totalPagini}",
                             style = MaterialTheme.typography.bodyMedium
                         )
-                    Text("Adăugată ${dataScurta(c.adaugat)}", style = MaterialTheme.typography.bodyMedium)
+                    Text(
+                        "Adăugată ${dataScurta(c.adaugat)}",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
                     if (c.notite.isNotEmpty())
                         Text("${c.notite.size} notițe", style = MaterialTheme.typography.bodyMedium)
                     if (c.semne.isNotEmpty())
-                        Text("${c.semne.size} semne de carte", style = MaterialTheme.typography.bodyMedium)
+                        Text(
+                            "${c.semne.size} semne de carte",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
 
                     Spacer(Modifier.height(18.dp))
 
@@ -279,18 +309,13 @@ private fun RandMeniu(text: String, culoare: Color, onClick: () -> Unit) {
         Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(2.dp))
-            .combinedClickableSimplu(onClick)
+            .clickable { onClick() }
             .padding(vertical = 13.dp)
     ) {
         Text(text, color = culoare, style = MaterialTheme.typography.titleMedium)
     }
 }
 
-@OptIn(ExperimentalFoundationApi::class)
-private fun Modifier.combinedClickableSimplu(onClick: () -> Unit): Modifier =
-    this.combinedClickable(onClick = onClick)
-
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun Comutator(
     optiuni: List<String>,
@@ -313,7 +338,7 @@ private fun Comutator(
                     .padding(horizontal = 2.dp)
                     .clip(RoundedCornerShape(2.dp))
                     .background(if (activ) Aur.copy(alpha = 0.16f) else Color.Transparent)
-                    .combinedClickable(onClick = { onAlege(i) })
+                    .clickable { onAlege(i) }
                     .padding(vertical = if (mic) 6.dp else 9.dp),
                 contentAlignment = Alignment.Center
             ) {
