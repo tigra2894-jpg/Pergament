@@ -31,8 +31,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import ro.pergament.data.Carte
 
@@ -93,7 +93,14 @@ fun EcranSetari(
 
             Titlu("Biblioteca ta")
 
-            Card {
+            Column(
+                Modifier
+                    .padding(horizontal = 18.dp)
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(3.dp))
+                    .background(Noapte.copy(alpha = 0.55f))
+                    .padding(horizontal = 16.dp, vertical = 6.dp)
+            ) {
                 Rand("Volume", "${carti.size}")
                 Rand("Rafturi", "$rafturi")
                 Rand("Terminate", "$terminate")
@@ -106,7 +113,7 @@ fun EcranSetari(
 
             Text(
                 "Copia păstrează titlurile, rafturile, unde ai rămas cu cititul, semnele și notițele. " +
-                        "Cărțile în sine rămân acolo unde sunt pe telefon — copia nu le mută.",
+                        "Cărțile în sine rămân acolo unde sunt pe telefon, copia nu le mută.",
                 color = PergamStins,
                 style = MaterialTheme.typography.bodyMedium,
                 modifier = Modifier.padding(horizontal = 22.dp, vertical = 4.dp)
@@ -115,20 +122,22 @@ fun EcranSetari(
             Spacer(Modifier.height(14.dp))
 
             ButonMare(
-                Icons.Filled.Backup,
-                "Salvează o copie",
-                "Alegi unde se scrie fișierul",
-                !lucreaza
-            ) { onSalveazaCopie() }
+                icon = Icons.Filled.Backup,
+                titlu = "Salvează o copie",
+                detaliu = "Alegi unde se scrie fișierul",
+                activ = !lucreaza,
+                onClick = onSalveazaCopie
+            )
 
             Spacer(Modifier.height(10.dp))
 
             ButonMare(
-                Icons.Filled.Restore,
-                "Restaurează dintr-o copie",
-                "Alegi fișierul salvat mai demult",
-                !lucreaza
-            ) { onRestaureaza() }
+                icon = Icons.Filled.Restore,
+                titlu = "Restaurează dintr-o copie",
+                detaliu = "Alegi fișierul salvat mai demult",
+                activ = !lucreaza,
+                onClick = onRestaureaza
+            )
 
             Spacer(Modifier.height(16.dp))
 
@@ -143,13 +152,13 @@ fun EcranSetari(
             Spacer(Modifier.height(30.dp))
 
             Text(
-                "Pergament 1.1",
+                text = "Pergament 1.1",
                 color = AurStins.copy(alpha = 0.6f),
                 style = MaterialTheme.typography.labelSmall,
+                textAlign = TextAlign.Center,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(bottom = 30.dp),
-                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    .padding(bottom = 30.dp)
             )
         }
 
@@ -181,23 +190,7 @@ private fun Titlu(text: String) {
 }
 
 @Composable
-private fun Card(continut: @Composable ColumnScopeAlias.() -> Unit) {
-    Column(
-        Modifier
-            .padding(horizontal = 18.dp)
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(3.dp))
-            .background(Noapte.copy(alpha = 0.55f))
-            .padding(horizontal = 16.dp, vertical = 6.dp)
-    ) {
-        ColumnScopeAlias.continut()
-    }
-}
-
-object ColumnScopeAlias
-
-@Composable
-private fun ColumnScopeAlias.Rand(eticheta: String, valoare: String) {
+private fun Rand(eticheta: String, valoare: String) {
     Row(
         Modifier
             .fillMaxWidth()
@@ -229,7 +222,8 @@ private fun ButonMare(
         verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(
-            icon, null,
+            icon,
+            contentDescription = null,
             tint = if (activ) Aur else PergamStins,
             modifier = Modifier.size(24.dp)
         )
