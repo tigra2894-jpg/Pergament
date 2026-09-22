@@ -37,6 +37,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -58,6 +59,9 @@ import java.util.Locale
 private val MODURI = listOf("Rafturi", "Vitrină", "Cronologic", "Catalog")
 private val SORTARI = listOf("Adăugare", "Titlu", "Autor", "Citit")
 
+// spatiul lasat jos ca butonul auriu sa nu acopere ultima carte
+private val SPATIU_JOS = 120.dp
+
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun EcranBiblioteca(
@@ -70,8 +74,8 @@ fun EcranBiblioteca(
 ) {
     var cautare by remember { mutableStateOf("") }
     var meniuPentru by remember { mutableStateOf<Carte?>(null) }
-    var mod by remember { mutableStateOf(0) }
-    var sortare by remember { mutableStateOf(0) }
+    var mod by remember { mutableIntStateOf(0) }
+    var sortare by remember { mutableIntStateOf(0) }
 
     val filtrate = remember(carti, cautare, sortare) {
         val baza = if (cautare.isBlank()) carti else {
@@ -119,14 +123,14 @@ fun EcranBiblioteca(
 
             if (carti.isNotEmpty()) {
                 BaraCautare(cautare) { cautare = it }
-                Comutator(MODURI, mod) { mod = it }
+                Comutator(MODURI, mod, mic = false) { mod = it }
                 Spacer(Modifier.height(6.dp))
                 Comutator(SORTARI, sortare, mic = true) { sortare = it }
             }
 
             if (carti.isEmpty() && !seIncarca) {
                 BibliotecaGoala(onAdauga)
-            } else if (filtrate.isEmpty()) {
+            } else if (filtrate.isEmpty() && carti.isNotEmpty()) {
                 Text(
                     "Nicio carte nu se potrivește cu „$cautare”.",
                     style = MaterialTheme.typography.bodyMedium,
@@ -162,18 +166,32 @@ fun EcranBiblioteca(
             }
         }
 
+        // butonul de adaugare, jos pe mijloc, pe o banda intunecata
         Box(
             Modifier
-                .align(Alignment.BottomEnd)
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .background(
+                    Brush.verticalGradient(
+                        listOf(Color.Transparent, Noapte.copy(alpha = 0.92f), Noapte)
+                    )
+                )
                 .systemBarsPadding()
-                .padding(end = 20.dp, bottom = 22.dp)
-                .size(56.dp)
-                .clip(RoundedCornerShape(28.dp))
-                .background(Brush.verticalGradient(listOf(Aur, AurStins)))
-                .combinedClickable(onClick = onAdauga),
+                .padding(top = 28.dp, bottom = 14.dp),
             contentAlignment = Alignment.Center
         ) {
-            Icon(Icons.Filled.Add, contentDescription = "Adaugă cărți", tint = Noapte)
+            Row(
+                Modifier
+                    .clip(RoundedCornerShape(26.dp))
+                    .background(Brush.verticalGradient(listOf(Aur, AurStins)))
+                    .combinedClickable(onClick = onAdauga)
+                    .padding(horizontal = 22.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(Icons.Filled.Add, contentDescription = null, tint = Noapte, modifier = Modifier.size(20.dp))
+                Spacer(Modifier.width(8.dp))
+                Text("Adaugă cărți", color = Noapte, style = MaterialTheme.typography.titleMedium)
+            }
         }
     }
 
@@ -224,31 +242,35 @@ fun EcranBiblioteca(
 private fun Comutator(
     optiuni: List<String>,
     ales: Int,
-    mic: Boolean = false,
+    mic: Boolean,
     onAlege: (Int) -> Unit
 ) {
-    LazyRow(
-        contentPadding = PaddingValues(horizontal = 22.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        modifier = Modifier.padding(top = if (mic) 0.dp else 12.dp)
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+            .padding(top = if (mic) 0.dp else 12.dp),
+        horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        items(optiuni.size) { i ->
+        optiuni.forEachIndexed { i, text ->
             val activ = i == ales
             Box(
                 Modifier
+                    .weight(1f)
+                    .padding(horizontal = 2.dp)
                     .clip(RoundedCornerShape(2.dp))
                     .background(if (activ) Aur.copy(alpha = 0.16f) else Color.Transparent)
                     .combinedClickable(onClick = { onAlege(i) })
-                    .padding(
-                        horizontal = if (mic) 10.dp else 14.dp,
-                        vertical = if (mic) 5.dp else 8.dp
-                    )
+                    .padding(vertical = if (mic) 6.dp else 9.dp),
+                contentAlignment = Alignment.Center
             ) {
                 Text(
-                    optiuni[i],
+                    text,
                     color = if (activ) Aur else PergamStins,
                     style = if (mic) MaterialTheme.typography.bodyMedium
-                    else MaterialTheme.typography.titleMedium
+                    else MaterialTheme.typography.titleMedium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Clip
                 )
             }
         }
@@ -258,7 +280,7 @@ private fun Comutator(
 @Composable
 private fun ModRafturi(
     carti: List<Carte>,
-    araContinua: Boolean,
+    arataSpeciale: Boolean,
     onDeschide: (Carte) -> Unit,
     onMeniu: (Carte) -> Unit
 ) {
@@ -271,11 +293,11 @@ private fun ModRafturi(
         carti.filter { it.paginaCurenta > 0 && it.progres < 0.99f }.take(6)
     }
 
-    LazyColumn(contentPadding = PaddingValues(bottom = 96.dp)) {
-        if (araContinua && inCurs.isNotEmpty()) {
+    LazyColumn(contentPadding = PaddingValues(bottom = SPATIU_JOS)) {
+        if (arataSpeciale && inCurs.isNotEmpty()) {
             item { Raft("Continuă lectura", inCurs, onDeschide, onMeniu) }
         }
-        if (araContinua && favorite.isNotEmpty()) {
+        if (arataSpeciale && favorite.isNotEmpty()) {
             item { Raft("Favorite", favorite, onDeschide, onMeniu) }
         }
         items(grupate.size) { i ->
@@ -293,7 +315,7 @@ private fun ModVitrina(
 ) {
     LazyVerticalGrid(
         columns = GridCells.Fixed(3),
-        contentPadding = PaddingValues(start = 18.dp, end = 18.dp, top = 16.dp, bottom = 96.dp),
+        contentPadding = PaddingValues(start = 18.dp, end = 18.dp, top = 16.dp, bottom = SPATIU_JOS),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalArrangement = Arrangement.spacedBy(18.dp)
     ) {
@@ -346,7 +368,7 @@ private fun ModCronologic(
     }
     val chei = remember(grupate) { grupate.keys.toList() }
 
-    LazyColumn(contentPadding = PaddingValues(bottom = 96.dp)) {
+    LazyColumn(contentPadding = PaddingValues(bottom = SPATIU_JOS)) {
         items(chei.size) { i ->
             val cheie = chei[i]
             Column(Modifier.padding(top = 18.dp)) {
@@ -367,11 +389,11 @@ private fun ModCronologic(
                 }
                 Spacer(Modifier.height(12.dp))
                 LazyRow(
-                    contentPadding = PaddingValues(horizontal = 22.dp),
+                    contentPadding = PaddingValues(start = 22.dp, end = 22.dp),
                     horizontalArrangement = Arrangement.spacedBy(14.dp)
                 ) {
                     items(grupate[cheie] ?: emptyList()) { carte ->
-                        Column(Modifier.width(112.dp)) {
+                        Column(Modifier.width(108.dp)) {
                             Coperta(
                                 carte = carte,
                                 modifier = Modifier
@@ -405,9 +427,7 @@ private fun ModCatalog(
     onDeschide: (Carte) -> Unit,
     onMeniu: (Carte) -> Unit
 ) {
-    LazyColumn(
-        contentPadding = PaddingValues(top = 12.dp, bottom = 96.dp)
-    ) {
+    LazyColumn(contentPadding = PaddingValues(top = 12.dp, bottom = SPATIU_JOS)) {
         items(carti) { carte ->
             Row(
                 Modifier
@@ -447,10 +467,6 @@ private fun ModCatalog(
                             append(carte.format)
                             append(", ")
                             append(carte.raft)
-                            if (carte.totalPagini > 0) {
-                                append(", ")
-                                append("${carte.totalPagini} pagini")
-                            }
                             if (carte.progres > 0f) {
                                 append(", citit ")
                                 append("${(carte.progres * 100).toInt()}%")
@@ -511,10 +527,7 @@ private fun BaraCautare(valoare: String, onSchimbare: (String) -> Unit) {
             .padding(horizontal = 14.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Icon(
-            Icons.Filled.Search, null, tint = PergamStins,
-            modifier = Modifier.size(18.dp)
-        )
+        Icon(Icons.Filled.Search, null, tint = PergamStins, modifier = Modifier.size(18.dp))
         Spacer(Modifier.width(10.dp))
         Box(Modifier.fillMaxWidth()) {
             if (valoare.isEmpty()) {
@@ -544,7 +557,11 @@ private fun Raft(
     onDeschide: (Carte) -> Unit,
     onMeniu: (Carte) -> Unit
 ) {
-    Column(Modifier.padding(top = 20.dp)) {
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .padding(top = 20.dp)
+    ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -557,11 +574,12 @@ private fun Raft(
         }
         Spacer(Modifier.height(12.dp))
         LazyRow(
-            contentPadding = PaddingValues(horizontal = 22.dp),
+            modifier = Modifier.fillMaxWidth(),
+            contentPadding = PaddingValues(start = 22.dp, end = 22.dp),
             horizontalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             items(carti) { carte ->
-                Column(modifier = Modifier.width(112.dp)) {
+                Column(modifier = Modifier.width(108.dp)) {
                     Box {
                         Coperta(
                             carte = carte,
@@ -635,16 +653,6 @@ private fun BibliotecaGoala(onAdauga: () -> Unit) {
             style = MaterialTheme.typography.bodyMedium,
             color = PergamStins
         )
-        Spacer(Modifier.height(26.dp))
-        Box(
-            Modifier
-                .clip(RoundedCornerShape(2.dp))
-                .background(Aur)
-                .combinedClickable(onClick = onAdauga)
-                .padding(horizontal = 26.dp, vertical = 13.dp)
-        ) {
-            Text("Adaugă prima carte", color = Noapte, style = MaterialTheme.typography.titleMedium)
-        }
     }
 }
 
@@ -652,12 +660,8 @@ private fun perioada(t: Long): String {
     val acum = Calendar.getInstance()
     val c = Calendar.getInstance()
     c.timeInMillis = t
-    val aziAn = acum.get(Calendar.YEAR)
-    val aziZi = acum.get(Calendar.DAY_OF_YEAR)
-    val an = c.get(Calendar.YEAR)
-    val zi = c.get(Calendar.DAY_OF_YEAR)
-    if (an == aziAn) {
-        val dif = aziZi - zi
+    if (c.get(Calendar.YEAR) == acum.get(Calendar.YEAR)) {
+        val dif = acum.get(Calendar.DAY_OF_YEAR) - c.get(Calendar.DAY_OF_YEAR)
         if (dif == 0) return "Astăzi"
         if (dif == 1) return "Ieri"
         if (dif < 7) return "Săptămâna aceasta"
