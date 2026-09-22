@@ -1,8 +1,11 @@
 package ro.pergament.ui
 
+import android.app.Activity
 import android.content.Context
 import android.graphics.BitmapFactory
 import android.speech.tts.TextToSpeech
+import android.speech.tts.UtteranceProgressListener
+import android.view.WindowManager
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -12,6 +15,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -34,6 +38,7 @@ import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Article
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.BookmarkBorder
+import androidx.compose.material.icons.filled.Brightness6
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Close
@@ -87,6 +92,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import ro.pergament.data.Carte
@@ -115,6 +121,37 @@ fun EcranLectura(
         (1500f * (18f / setari.marimeText) * (18f / setari.marimeText)).toInt()
     }
 
+    // ecranul ramane aprins cat citesti
+    DisposableEffect(setari.ecranAprins) {
+        val activitate = ctx as? Activity
+        if (setari.ecranAprins) {
+            activitate?.window?.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        }
+        onDispose {
+            activitate?.window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        }
+    }
+
+    // luminozitatea ecranului, doar cat sta cartea deschisa
+    DisposableEffect(setari.luminozitate) {
+        val activitate = ctx as? Activity
+        val fereastra = activitate?.window
+        val atribute = fereastra?.attributes
+        if (atribute != null) {
+            atribute.screenBrightness =
+                if (setari.luminozitate < 0f) WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE
+                else setari.luminozitate.coerceIn(0.02f, 1f)
+            fereastra.attributes = atribute
+        }
+        onDispose {
+            val a = fereastra?.attributes
+            if (a != null) {
+                a.screenBrightness = WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE
+                fereastra.attributes = a
+            }
+        }
+    }
+
     LaunchedEffect(carte.id, caractere, setari.pdfCaText) {
         continut?.inchide()
         continut = null
@@ -129,7 +166,15 @@ fun EcranLectura(
         onDispose { continut?.inchide() }
     }
 
-    val tema = TemeLectura[setari.tema.coerceIn(0, TemeLectura.size - 1)]
+    // tema se reverifica din cand in cand, pentru modul noapte automat
+    var indexTema by remember { mutableIntStateOf(setari.temaAcum()) }
+    LaunchedEffect(setari.tema, setari.noapteAutomat, setari.oraNoapte, setari.oraZi) {
+        while (true) {
+            indexTema = setari.temaAcum()
+            delay(60_000)
+        }
+    }
+    val tema = TemeLectura[indexTema.coerceIn(0, TemeLectura.size - 1)]
 
     Box(
         Modifier
@@ -202,7 +247,7 @@ fun EcranLectura(
             }
         } else {
             PaginiCarte(
-                carte, c, setari, tema, onSetari,
+                carte, c, setari, tema, indexTema, onSetari,
                 onProgres, onSemn, onNotita, onStergeNotita, onInapoi
             )
         }
@@ -215,6 +260,7 @@ private fun PaginiCarte(
     continut: Continut,
     setari: Setari,
     tema: TemaLectura,
+    indexTema: Int,
     onSetari: (Setari) -> Unit,
     onProgres: (Int, Int) -> Unit,
     onSemn: (Int) -> Unit,
@@ -233,8 +279,8 @@ private fun PaginiCarte(
     val paginiText = if (continut is Continut.Litera) continut.pagini else null
     val prefs = remember { ctx.getSharedPreferences("pergament", Context.MODE_PRIVATE) }
 
-    val texturaPagina = if (setari.tema == 1) texturaHartie() else texturaPergament()
-    val intensitateTextura = when (setari.tema) {
+    val texturaPagina = if (indexTema == 1) texturaHartie() else texturaPergament()
+    val intensitateTextura = when (indexTema) {
         0 -> 0.85f
         1 -> 0.55f
         2 -> 0.30f
@@ -258,13 +304,24 @@ private fun PaginiCarte(
     var marire by remember { mutableStateOf(false) }
     var ghid by remember { mutableStateOf(!prefs.getBoolean("ghid_vazut", false)) }
     var panou by remember { mutableIntStateOf(-1) }
+    var lumina by remember { mutableFloatStateOf(-1f) }
 
     var tts by remember { mutableStateOf<TextToSpeech?>(null) }
     var citesteCuVoce by remember { mutableStateOf(false) }
+    var paginaTerminata by remember { mutableIntStateOf(-1) }
 
     DisposableEffect(Unit) {
         val motor = TextToSpeech(ctx) { }
         motor.setLanguage(Locale("ro", "RO"))
+        motor.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
+            override fun onStart(id: String?) {}
+            override fun onDone(id: String?) {
+                val n = id?.toIntOrNull() ?: return
+                paginaTerminata = n
+            }
+            @Deprecated("varianta veche")
+            override fun onError(id: String?) {}
+        })
         tts = motor
         onDispose {
             try {
@@ -275,12 +332,27 @@ private fun PaginiCarte(
         }
     }
 
+    fun citeste(p: Int) {
+        val t = (continut as? Continut.Litera)?.pagini?.getOrNull(p) ?: return
+        tts?.speak(t, TextToSpeech.QUEUE_FLUSH, null, p.toString())
+    }
+
+    // cand vocea termina pagina, trecem singuri mai departe
+    LaunchedEffect(paginaTerminata) {
+        if (paginaTerminata < 0) return@LaunchedEffect
+        if (!citesteCuVoce || !setari.avansAutomat) return@LaunchedEffect
+        if (paginaTerminata != stare.pagina) return@LaunchedEffect
+        if (stare.pagina >= total - 1) {
+            citesteCuVoce = false
+            return@LaunchedEffect
+        }
+        delay(400)
+        stare.inainte()
+        citeste(stare.pagina)
+    }
+
     LaunchedEffect(stare.pagina) {
         onProgres(stare.pagina, total)
-        if (citesteCuVoce && continut is Continut.Litera) {
-            val t = continut.pagini.getOrNull(stare.pagina) ?: ""
-            tts?.speak(t, TextToSpeech.QUEUE_FLUSH, null, "pag")
-        }
     }
 
     val culoareHartie = when {
@@ -344,9 +416,58 @@ private fun PaginiCarte(
             }
         }
 
+        // banda de luminozitate pe marginea stanga
+        Box(
+            Modifier
+                .align(Alignment.CenterStart)
+                .width(30.dp)
+                .fillMaxHeight(0.62f)
+                .pointerInput(Unit) {
+                    detectVerticalDragGestures(
+                        onDragStart = {
+                            val pornire = if (setari.luminozitate < 0f) 0.6f else setari.luminozitate
+                            lumina = pornire
+                        },
+                        onDragEnd = {
+                            if (lumina >= 0f) {
+                                onSetari(setari.copy(luminozitate = lumina))
+                                scop.launch {
+                                    delay(900)
+                                    lumina = -1f
+                                }
+                            }
+                        }
+                    ) { _, delta ->
+                        if (lumina < 0f) lumina = 0.6f
+                        lumina = (lumina - delta / size.height.toFloat()).coerceIn(0.02f, 1f)
+                        onSetari(setari.copy(luminozitate = lumina))
+                    }
+                }
+        )
+
+        if (lumina >= 0f) {
+            Row(
+                Modifier
+                    .align(Alignment.CenterStart)
+                    .padding(start = 34.dp)
+                    .clip(RoundedCornerShape(3.dp))
+                    .background(Noapte.copy(alpha = 0.85f))
+                    .padding(horizontal = 14.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(Icons.Filled.Brightness6, null, tint = Aur, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(10.dp))
+                Text(
+                    "${(lumina * 100).toInt()}%",
+                    color = Pergam,
+                    style = MaterialTheme.typography.titleMedium
+                )
+            }
+        }
+
         if (!bareVizibile && !marire && !ghid && panou < 0) {
             if (stare.pagina > 0) {
-                Sageata(Modifier.align(Alignment.CenterStart), true) {
+                Sageata(Modifier.align(Alignment.CenterStart).padding(start = 22.dp), true) {
                     scop.launch { stare.inapoi() }
                 }
             }
@@ -477,17 +598,14 @@ private fun PaginiCarte(
                         ButonBara(Icons.Filled.EditNote, "Notiță", false) {
                             dialogNotita = true
                         }
-                        if (continut is Continut.Litera) {
+                        if (esteText) {
                             ButonBara(
                                 if (citesteCuVoce) Icons.Filled.Stop else Icons.Filled.PlayArrow,
                                 if (citesteCuVoce) "Oprește" else "Ascultă",
                                 citesteCuVoce
                             ) {
                                 citesteCuVoce = !citesteCuVoce
-                                if (citesteCuVoce) {
-                                    val t = continut.pagini.getOrNull(stare.pagina) ?: ""
-                                    tts?.speak(t, TextToSpeech.QUEUE_FLUSH, null, "pag")
-                                } else tts?.stop()
+                                if (citesteCuVoce) citeste(stare.pagina) else tts?.stop()
                             }
                         }
                     }
@@ -638,7 +756,7 @@ private fun GhidLectura(cuMarire: Boolean, onGata: () -> Unit) {
             Modifier
                 .fillMaxSize()
                 .systemBarsPadding()
-                .padding(start = 8.dp, end = 8.dp, top = 40.dp, bottom = 250.dp)
+                .padding(start = 8.dp, end = 8.dp, top = 40.dp, bottom = 260.dp)
         ) {
             ZonaGhid(Modifier.weight(0.3f), Icons.Filled.ChevronLeft, "Înapoi", "atinge\nmarginea\nstângă")
             ZonaGhid(Modifier.weight(0.4f), Icons.Filled.Menu, "Meniu", "atinge\nla mijloc")
@@ -649,22 +767,28 @@ private fun GhidLectura(cuMarire: Boolean, onGata: () -> Unit) {
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
                 .systemBarsPadding()
-                .padding(horizontal = 28.dp, vertical = 28.dp)
+                .padding(horizontal = 28.dp, vertical = 24.dp)
         ) {
             Text(
-                "Sau apucă colțul paginii cu degetul și trage-l spre stânga, exact ca la o carte.",
+                "Apucă colțul paginii cu degetul și trage-l spre stânga, exact ca la o carte.",
                 color = Pergam,
                 style = MaterialTheme.typography.titleMedium
             )
+            Spacer(Modifier.height(10.dp))
+            Text(
+                "Glisează cu degetul pe marginea din stânga ca să schimbi lumina ecranului.",
+                color = PergamStins,
+                style = MaterialTheme.typography.bodyMedium
+            )
             if (cuMarire) {
-                Spacer(Modifier.height(10.dp))
+                Spacer(Modifier.height(8.dp))
                 Text(
-                    "Două degete pe pagină o măresc. Dublu-tap sau X te scot din mărire.",
+                    "Două degete pe pagină o măresc.",
                     color = PergamStins,
                     style = MaterialTheme.typography.bodyMedium
                 )
             }
-            Spacer(Modifier.height(22.dp))
+            Spacer(Modifier.height(20.dp))
             Box(
                 Modifier
                     .fillMaxWidth()
@@ -932,6 +1056,61 @@ private fun PanouSetari(setari: Setari, onSetari: (Setari) -> Unit) {
                     Text(t.nume, color = t.cerneala, fontSize = 10.sp, fontFamily = FontFamily.Serif)
                 }
             }
+        }
+        Spacer(Modifier.height(14.dp))
+        Comutare("Ecranul rămâne aprins", setari.ecranAprins) {
+            onSetari(setari.copy(ecranAprins = it))
+        }
+        Comutare("Trece singură pagina când ascult", setari.avansAutomat) {
+            onSetari(setari.copy(avansAutomat = it))
+        }
+        Comutare("Mod noapte după ora ${setari.oraNoapte}", setari.noapteAutomat) {
+            onSetari(setari.copy(noapteAutomat = it))
+        }
+        if (setari.luminozitate >= 0f) {
+            Spacer(Modifier.height(6.dp))
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .clickable { onSetari(setari.copy(luminozitate = -1f)) }
+                    .padding(vertical = 10.dp)
+            ) {
+                Text(
+                    "Revino la lumina telefonului",
+                    color = Aur,
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun Comutare(text: String, pornit: Boolean, onSchimba: (Boolean) -> Unit) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clickable { onSchimba(!pornit) }
+            .padding(vertical = 10.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(text, color = PergamStins, style = MaterialTheme.typography.bodyMedium)
+        Box(
+            Modifier
+                .width(42.dp)
+                .height(22.dp)
+                .clip(RoundedCornerShape(11.dp))
+                .background(if (pornit) Aur.copy(alpha = 0.35f) else Noapte),
+            contentAlignment = if (pornit) Alignment.CenterEnd else Alignment.CenterStart
+        ) {
+            Box(
+                Modifier
+                    .padding(horizontal = 3.dp)
+                    .size(16.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(if (pornit) Aur else PergamStins)
+            )
         }
     }
 }
