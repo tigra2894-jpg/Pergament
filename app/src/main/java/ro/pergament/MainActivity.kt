@@ -24,11 +24,13 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import ro.pergament.data.Biblioteca
 import ro.pergament.data.Carte
+import ro.pergament.data.Coperti
 import ro.pergament.data.Import
 import ro.pergament.data.Rafturi
 import ro.pergament.data.Rezerva
 import ro.pergament.data.Setari
 import ro.pergament.data.SetariStore
+import ro.pergament.ui.EcranAlegereCoperta
 import ro.pergament.ui.EcranBiblioteca
 import ro.pergament.ui.EcranLectura
 import ro.pergament.ui.EcranSetari
@@ -63,6 +65,7 @@ fun Aplicatia() {
     var setari by remember { mutableStateOf(Setari()) }
     var deschisa by remember { mutableStateOf<String?>(null) }
     var ecranSetari by remember { mutableStateOf(false) }
+    var copertaPentru by remember { mutableStateOf<String?>(null) }
     var seIncarca by remember { mutableStateOf(false) }
     var lucreaza by remember { mutableStateOf(false) }
 
@@ -183,10 +186,40 @@ fun Aplicatia() {
         }
     }
 
-    val carteDeschisa = carti.firstOrNull { it.id == deschisa }
+    val alegatorPoza = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri: Uri? ->
+        val id = copertaPentru
+        if (uri != null && id != null) {
+            val carte = carti.firstOrNull { it.id == id }
+            if (carte != null) {
+                scop.launch {
+                    val cale = withContext(Dispatchers.IO) {
+                        Coperti.dinImagine(ctx, uri, carte.id)
+                    }
+                    if (cale != null) {
+                        salveaza(carti.map {
+                            if (it.id == carte.id) it.copy(coperta = cale) else it
+                        })
+                        copertaPentru = null
+                        Toast.makeText(ctx, "Coperta a fost schimbată.", Toast.LENGTH_SHORT).show()
+                    } else {
+                        Toast.makeText(ctx, "Poza nu a putut fi folosită.", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
+        }
+    }
 
-    BackHandler(enabled = carteDeschisa != null || ecranSetari) {
-        if (carteDeschisa != null) deschisa = null else ecranSetari = false
+    val carteDeschisa = carti.firstOrNull { it.id == deschisa }
+    val carteCoperta = carti.firstOrNull { it.id == copertaPentru }
+
+    BackHandler(enabled = carteDeschisa != null || ecranSetari || carteCoperta != null) {
+        when {
+            carteDeschisa != null -> deschisa = null
+            carteCoperta != null -> copertaPentru = null
+            else -> ecranSetari = false
+        }
     }
 
     when {
@@ -229,6 +262,40 @@ fun Aplicatia() {
                     })
                 },
                 onInapoi = { deschisa = null }
+            )
+        }
+
+        carteCoperta != null -> {
+            EcranAlegereCoperta(
+                carte = carteCoperta,
+                onPiele = {
+                    scop.launch(Dispatchers.IO) { Coperti.sterge(ctx, carteCoperta.id) }
+                    salveaza(carti.map {
+                        if (it.id == carteCoperta.id) it.copy(coperta = null) else it
+                    })
+                    copertaPentru = null
+                    Toast.makeText(ctx, "Cartea a primit legătură de piele.", Toast.LENGTH_SHORT).show()
+                },
+                onPagina = { pagina ->
+                    scop.launch {
+                        val cale = withContext(Dispatchers.IO) {
+                            Coperti.dinPagina(ctx, carteCoperta.uri, pagina, carteCoperta.id)
+                        }
+                        if (cale != null) {
+                            salveaza(carti.map {
+                                if (it.id == carteCoperta.id) it.copy(coperta = cale) else it
+                            })
+                            copertaPentru = null
+                            Toast.makeText(ctx, "Coperta a fost schimbată.", Toast.LENGTH_SHORT).show()
+                        } else {
+                            Toast.makeText(ctx, "Pagina nu a putut fi folosită.", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                },
+                onGalerie = {
+                    alegatorPoza.launch(arrayOf("image/*"))
+                },
+                onInapoi = { copertaPentru = null }
             )
         }
 
@@ -275,6 +342,7 @@ fun Aplicatia() {
                     })
                     Toast.makeText(ctx, "Datele cărții au fost salvate.", Toast.LENGTH_SHORT).show()
                 },
+                onSchimbaCoperta = { c -> copertaPentru = c.id },
                 onSetari = { ecranSetari = true }
             )
         }
