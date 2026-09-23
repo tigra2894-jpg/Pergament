@@ -56,11 +56,6 @@ object Import {
         return s.trim().trim(',', ';', '-').trim()
     }
 
-    /**
-     * Desparte autorul de titlu DOAR daca numele fisierului contine
-     * " - " cu spatii in jur, inainte de curatare. Asa "English-grammar-in-Use"
-     * nu mai e taiat gresit, fiindca liniutele lui nu au spatii.
-     */
     private fun desparteAutor(numeBrut: String): Pair<String, String> {
         val fara = numeBrut.substringBeforeLast('.')
         val p = fara.split(" - ", " – ", " — ", limit = 2)
@@ -74,7 +69,6 @@ object Import {
         return titluCurat(fara) to ""
     }
 
-    /** Un autor are 1-4 cuvinte, litere, si nu e o propozitie. */
     private fun pareNume(s: String): Boolean {
         if (s.length !in 3..45) return false
         val cuv = s.split(" ").filter { it.isNotBlank() }
@@ -87,12 +81,10 @@ object Import {
         return true
     }
 
-    /** Numele celor care urca fisiere pe net, nu autori. */
     private fun autorValid(a: String, titlu: String): Boolean {
         if (!pareNume(a)) return false
         val j = Rafturi.faraDiacritice(a)
         val t = Rafturi.faraDiacritice(titlu)
-        // autorul nu poate fi tot titlul
         if (t.contains(j) || j.contains(t)) return false
         val respinse = listOf(
             "anysam", "admin", "user", "windows", "microsoft", "adobe",
@@ -101,7 +93,6 @@ object Import {
             "word", "writer", "creator", "author", "autor"
         )
         for (r in respinse) if (j.contains(r)) return false
-        // nume in alfabet chirilic sau alte alfabete: nu ne putem baza pe ele
         val latine = a.count { it.isLetter() && it.code < 0x250 }
         val toate = a.count { it.isLetter() }
         if (toate > 0 && latine.toFloat() / toate < 0.7f) return false
@@ -121,6 +112,10 @@ object Import {
         return true
     }
 
+    /**
+     * Aduce cartea in biblioteca: ii copiaza fisierul in aplicatie,
+     * ii citeste titlul si autorul, ii scoate coperta.
+     */
     fun adauga(ctx: Context, uri: Uri): Carte? {
         try {
             ctx.contentResolver.takePersistableUriPermission(
@@ -139,6 +134,13 @@ object Import {
             else -> if (ext.isBlank()) "TXT" else ext.uppercase(Locale.ROOT)
         }
 
+        val id = "b" + System.currentTimeMillis() + "_" +
+                uri.toString().hashCode().toString().replace("-", "n")
+
+        // copiem fisierul in aplicatie; daca nu reusim, ramanem pe cel original
+        val uriFolosit = Depozit.copiaza(ctx, uri, id, format) ?: uri.toString()
+        val uriCitire = Uri.parse(uriFolosit)
+
         val dinNume = desparteAutor(nume)
         var titlu = dinNume.first
         var autor = dinNume.second
@@ -146,14 +148,14 @@ object Import {
         var pagini = 0
 
         if (format == "PDF") {
-            pagini = numaraPaginiPdf(ctx, uri)
-            val meta = metadatePdf(ctx, uri)
+            pagini = numaraPaginiPdf(ctx, uriCitire)
+            val meta = metadatePdf(ctx, uriCitire)
             if (titluValid(meta.first)) titlu = titluCurat(meta.first)
             if (autor.isBlank() && autorValid(meta.second, titlu)) autor = meta.second.trim()
         }
 
         if (format == "EPUB") {
-            val meta = metadateEpub(ctx, uri)
+            val meta = metadateEpub(ctx, uriCitire)
             if (titluValid(meta.first)) titlu = meta.first.trim()
             if (autorValid(meta.second, titlu)) autor = meta.second.trim()
         }
@@ -161,14 +163,11 @@ object Import {
         if (!titluValid(titlu)) titlu = "Carte fără titlu"
         if (!autorValid(autor, titlu)) autor = ""
 
-        val id = "b" + System.currentTimeMillis() + "_" +
-                uri.toString().hashCode().toString().replace("-", "n")
-
-        val coperta = extrageCoperta(ctx, uri, format, id)
+        val coperta = extrageCoperta(ctx, uriCitire, format, id)
 
         return Carte(
             id = id,
-            uri = uri.toString(),
+            uri = uriFolosit,
             titlu = titlu,
             autor = autor,
             format = format,
@@ -214,8 +213,10 @@ object Import {
                 if (t.isNotBlank()) return t
             }
             if (camp == "Title") {
-                val xmp = Regex("<dc:title>.*?<rdf:li[^>]*>(.{2,200}?)</rdf:li>",
-                    RegexOption.DOT_MATCHES_ALL).find(s)
+                val xmp = Regex(
+                    "<dc:title>.*?<rdf:li[^>]*>(.{2,200}?)</rdf:li>",
+                    RegexOption.DOT_MATCHES_ALL
+                ).find(s)
                 if (xmp != null) return xmp.groupValues[1].trim()
             }
         } catch (e: Exception) {
@@ -333,19 +334,45 @@ object Import {
         }
     }
 
+    /**
+     * Coperta din PDF: ne uitam la primele 3 pagini si o luam
+     * pe cea mai "plina". O pagina de titlu alba e sarita.
+     */
     private fun copertaPdf(ctx: Context, uri: Uri): Bitmap? {
         return try {
             ctx.contentResolver.openFileDescriptor(uri, "r")?.use { pfd ->
                 PdfRenderer(pfd).use { r ->
                     if (r.pageCount == 0) return null
-                    val p = r.openPage(0)
-                    val lat = 700
-                    val inalt = (lat.toFloat() * p.height / p.width).toInt().coerceIn(200, 1400)
-                    val bmp = Bitmap.createBitmap(lat, inalt, Bitmap.Config.ARGB_8888)
-                    bmp.eraseColor(Color.WHITE)
-                    p.render(bmp, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
-                    p.close()
-                    bmp
+                    var ceaMaiBuna: Bitmap? = null
+                    var scorBun = -1f
+                    val cate = minOf(3, r.pageCount)
+                    for (i in 0 until cate) {
+                        val p = r.openPage(i)
+                        val lat = 700
+                        val inalt = (lat.toFloat() * p.height / p.width).toInt().coerceIn(200, 1400)
+                        val bmp = Bitmap.createBitmap(lat, inalt, Bitmap.Config.ARGB_8888)
+                        bmp.eraseColor(Color.WHITE)
+                        p.render(bmp, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
+                        p.close()
+
+                        // prima pagina are un mic avantaj: de obicei chiar ea e coperta
+                        val scor = Coperti.incarcatura(bmp) + if (i == 0) 0.10f else 0f
+                        if (scor > scorBun) {
+                            ceaMaiBuna?.recycle()
+                            ceaMaiBuna = bmp
+                            scorBun = scor
+                        } else {
+                            bmp.recycle()
+                        }
+                        // daca prima pagina e deja bogata, nu mai cautam
+                        if (i == 0 && scor > 0.30f) break
+                    }
+                    // toate paginile sunt aproape albe: lasam legatura de piele
+                    if (scorBun < 0.045f) {
+                        ceaMaiBuna?.recycle()
+                        return null
+                    }
+                    ceaMaiBuna
                 }
             }
         } catch (e: Exception) {
