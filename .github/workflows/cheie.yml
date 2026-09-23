@@ -1,0 +1,53 @@
+name: Creeaza cheia de semnatura
+
+on:
+  workflow_dispatch:
+    inputs:
+      parola:
+        description: 'Parola cheii (tine-o minte, nu se poate recupera)'
+        required: true
+      nume:
+        description: 'Numele tau'
+        required: true
+        default: 'Dumitrascu Marius'
+      tara:
+        description: 'Codul tarii'
+        required: true
+        default: 'RO'
+
+jobs:
+  cheie:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Pregateste Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Creeaza cheia
+        run: |
+          keytool -genkeypair -v \
+            -keystore pergament.jks \
+            -keyalg RSA \
+            -keysize 4096 \
+            -validity 10000 \
+            -alias pergament \
+            -storepass "${{ github.event.inputs.parola }}" \
+            -keypass "${{ github.event.inputs.parola }}" \
+            -dname "CN=${{ github.event.inputs.nume }}, OU=Pergament, O=Pergament, L=Sibiu, ST=Sibiu, C=${{ github.event.inputs.tara }}"
+
+      - name: Transforma cheia in text
+        run: |
+          base64 -w 0 pergament.jks > cheie_text.txt
+          echo "Cheia a fost creata."
+          echo "Valabila 27 de ani."
+
+      - name: Urca cheia
+        uses: actions/upload-artifact@v4
+        with:
+          name: CHEIE-PERGAMENT-PASTREAZ-O
+          path: |
+            pergament.jks
+            cheie_text.txt
+          retention-days: 7
