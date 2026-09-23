@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -26,6 +25,7 @@ import androidx.compose.material.icons.filled.AutoStories
 import androidx.compose.material.icons.filled.Headphones
 import androidx.compose.material.icons.filled.LibraryBooks
 import androidx.compose.material.icons.filled.MenuBook
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -72,7 +72,10 @@ private val PAGINI = listOf(
 )
 
 @Composable
-fun EcranBunVenit(onGata: () -> Unit) {
+fun EcranBunVenit(
+    onGata: () -> Unit,
+    onAdauga: () -> Unit
+) {
     val piele = texturaPiele()
     val stare = rememberPagerState(pageCount = { PAGINI.size })
     val scop = rememberCoroutineScope()
@@ -136,16 +139,13 @@ fun EcranBunVenit(onGata: () -> Unit) {
                             .clip(RoundedCornerShape(3.dp))
                             .background(
                                 Brush.linearGradient(
-                                    listOf(
-                                        Color(0xFF3A2A1C),
-                                        Color(0xFF241A11)
-                                    )
+                                    listOf(Color(0xFF3A2A1C), Color(0xFF241A11))
                                 )
                             )
                             .border(0.8.dp, Aur.copy(alpha = 0.45f), RoundedCornerShape(3.dp)),
                         contentAlignment = Alignment.Center
                     ) {
-                        androidx.compose.material3.Icon(
+                        Icon(
                             p.icon,
                             contentDescription = null,
                             tint = Aur,
@@ -214,7 +214,7 @@ fun EcranBunVenit(onGata: () -> Unit) {
                         .clip(RoundedCornerShape(2.dp))
                         .background(Brush.verticalGradient(listOf(Aur, AurStins)))
                         .clickable {
-                            if (ultima) onGata()
+                            if (ultima) onAdauga()
                             else scop.launch { stare.animateScrollToPage(stare.currentPage + 1) }
                         }
                         .padding(vertical = 16.dp),
@@ -222,7 +222,7 @@ fun EcranBunVenit(onGata: () -> Unit) {
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         if (ultima) {
-                            androidx.compose.material3.Icon(
+                            Icon(
                                 Icons.Filled.MenuBook,
                                 contentDescription = null,
                                 tint = Noapte,
