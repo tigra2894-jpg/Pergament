@@ -25,6 +25,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBarsPadding
@@ -49,6 +50,7 @@ import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.ListAlt
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.RecordVoiceOver
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.TextFields
@@ -100,7 +102,8 @@ import ro.pergament.data.Notita
 import ro.pergament.data.Setari
 import ro.pergament.reader.Cititor
 import ro.pergament.reader.Continut
-import java.util.Locale
+import ro.pergament.reader.Voce
+import ro.pergament.reader.VoceDisponibila
 import kotlin.math.roundToInt
 
 @Composable
@@ -121,7 +124,6 @@ fun EcranLectura(
         (1500f * (18f / setari.marimeText) * (18f / setari.marimeText)).toInt()
     }
 
-    // ecranul ramane aprins cat citesti
     DisposableEffect(setari.ecranAprins) {
         val activitate = ctx as? Activity
         if (setari.ecranAprins) {
@@ -132,7 +134,6 @@ fun EcranLectura(
         }
     }
 
-    // luminozitatea ecranului, doar cat sta cartea deschisa
     DisposableEffect(setari.luminozitate) {
         val activitate = ctx as? Activity
         val fereastra = activitate?.window
@@ -166,7 +167,6 @@ fun EcranLectura(
         onDispose { continut?.inchide() }
     }
 
-    // tema se reverifica din cand in cand, pentru modul noapte automat
     var indexTema by remember { mutableIntStateOf(setari.temaAcum()) }
     LaunchedEffect(setari.tema, setari.noapteAutomat, setari.oraNoapte, setari.oraZi) {
         while (true) {
@@ -299,6 +299,7 @@ private fun PaginiCarte(
 
     var bareVizibile by remember { mutableStateOf(false) }
     var panouSetari by remember { mutableStateOf(false) }
+    var panouVoce by remember { mutableStateOf(false) }
     var dialogNotita by remember { mutableStateOf(false) }
     var textNotita by remember { mutableStateOf("") }
     var marire by remember { mutableStateOf(false) }
@@ -307,12 +308,17 @@ private fun PaginiCarte(
     var lumina by remember { mutableFloatStateOf(-1f) }
 
     var tts by remember { mutableStateOf<TextToSpeech?>(null) }
+    var voci by remember { mutableStateOf<List<VoceDisponibila>>(emptyList()) }
     var citesteCuVoce by remember { mutableStateOf(false) }
     var paginaTerminata by remember { mutableIntStateOf(-1) }
 
     DisposableEffect(Unit) {
-        val motor = TextToSpeech(ctx) { }
-        motor.setLanguage(Locale("ro", "RO"))
+        var motor: TextToSpeech? = null
+        motor = TextToSpeech(ctx) { stare ->
+            if (stare == TextToSpeech.SUCCESS) {
+                voci = Voce.listeaza(motor)
+            }
+        }
         motor.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
             override fun onStart(id: String?) {}
             override fun onDone(id: String?) {
@@ -332,12 +338,16 @@ private fun PaginiCarte(
         }
     }
 
-    fun citeste(p: Int) {
-        val t = (continut as? Continut.Litera)?.pagini?.getOrNull(p) ?: return
-        tts?.speak(t, TextToSpeech.QUEUE_FLUSH, null, p.toString())
+    LaunchedEffect(tts, setari.vocePreferata, setari.vitezaVoce, setari.tonVoce) {
+        Voce.aplica(tts, setari.vocePreferata, setari.vitezaVoce, setari.tonVoce)
     }
 
-    // cand vocea termina pagina, trecem singuri mai departe
+    fun citeste(p: Int) {
+        val brut = (continut as? Continut.Litera)?.pagini?.getOrNull(p) ?: return
+        val text = Voce.pentruCitit(brut, setari.pauzeMaiLungi)
+        tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, p.toString())
+    }
+
     LaunchedEffect(paginaTerminata) {
         if (paginaTerminata < 0) return@LaunchedEffect
         if (!citesteCuVoce || !setari.avansAutomat) return@LaunchedEffect
@@ -346,7 +356,7 @@ private fun PaginiCarte(
             citesteCuVoce = false
             return@LaunchedEffect
         }
-        delay(400)
+        delay(500)
         stare.inainte()
         citeste(stare.pagina)
     }
@@ -416,7 +426,6 @@ private fun PaginiCarte(
             }
         }
 
-        // banda de luminozitate pe marginea stanga
         Box(
             Modifier
                 .align(Alignment.CenterStart)
@@ -425,8 +434,7 @@ private fun PaginiCarte(
                 .pointerInput(Unit) {
                     detectVerticalDragGestures(
                         onDragStart = {
-                            val pornire = if (setari.luminozitate < 0f) 0.6f else setari.luminozitate
-                            lumina = pornire
+                            lumina = if (setari.luminozitate < 0f) 0.6f else setari.luminozitate
                         },
                         onDragEnd = {
                             if (lumina >= 0f) {
@@ -572,6 +580,7 @@ private fun PaginiCarte(
                         if (esteText) {
                             ButonBara(Icons.Filled.TextFields, "Litere", panouSetari) {
                                 panouSetari = !panouSetari
+                                if (panouSetari) panouVoce = false
                             }
                         }
                         if (estePdfText) {
@@ -599,6 +608,10 @@ private fun PaginiCarte(
                             dialogNotita = true
                         }
                         if (esteText) {
+                            ButonBara(Icons.Filled.RecordVoiceOver, "Voce", panouVoce) {
+                                panouVoce = !panouVoce
+                                if (panouVoce) panouSetari = false
+                            }
                             ButonBara(
                                 if (citesteCuVoce) Icons.Filled.Stop else Icons.Filled.PlayArrow,
                                 if (citesteCuVoce) "Oprește" else "Ascultă",
@@ -622,6 +635,16 @@ private fun PaginiCarte(
                     if (panouSetari && esteText) {
                         Spacer(Modifier.height(10.dp))
                         PanouSetari(setari, onSetari)
+                    }
+
+                    if (panouVoce && esteText) {
+                        Spacer(Modifier.height(10.dp))
+                        PanouVoce(setari, voci, onSetari) {
+                            if (citesteCuVoce) {
+                                tts?.stop()
+                                citeste(stare.pagina)
+                            }
+                        }
                     }
                 }
             }
@@ -706,15 +729,118 @@ private fun PaginiCarte(
 private fun Color.umbraUsoara() = Color(red * 0.95f, green * 0.94f, blue * 0.92f, alpha)
 
 @Composable
+private fun PanouVoce(
+    setari: Setari,
+    voci: List<VoceDisponibila>,
+    onSetari: (Setari) -> Unit,
+    onSchimbare: () -> Unit
+) {
+    Column(Modifier.fillMaxWidth()) {
+        Text(
+            "Viteza  ${(setari.vitezaVoce * 100).toInt()}%",
+            color = PergamStins,
+            style = MaterialTheme.typography.bodyMedium
+        )
+        Slider(
+            value = setari.vitezaVoce,
+            onValueChange = { onSetari(setari.copy(vitezaVoce = it)) },
+            onValueChangeFinished = onSchimbare,
+            valueRange = 0.6f..1.6f,
+            colors = SliderDefaults.colors(
+                thumbColor = Aur,
+                activeTrackColor = Aur,
+                inactiveTrackColor = AurStins.copy(alpha = 0.3f)
+            )
+        )
+        Text(
+            "Tonul  ${if (setari.tonVoce < 0.95f) "mai gros" else if (setari.tonVoce > 1.05f) "mai subțire" else "normal"}",
+            color = PergamStins,
+            style = MaterialTheme.typography.bodyMedium
+        )
+        Slider(
+            value = setari.tonVoce,
+            onValueChange = { onSetari(setari.copy(tonVoce = it)) },
+            onValueChangeFinished = onSchimbare,
+            valueRange = 0.7f..1.3f,
+            colors = SliderDefaults.colors(
+                thumbColor = Aur,
+                activeTrackColor = Aur,
+                inactiveTrackColor = AurStins.copy(alpha = 0.3f)
+            )
+        )
+
+        Spacer(Modifier.height(4.dp))
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .clickable {
+                    onSetari(setari.copy(pauzeMaiLungi = !setari.pauzeMaiLungi))
+                    onSchimbare()
+                }
+                .padding(vertical = 10.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                "Pauze de respirație între paragrafe",
+                color = PergamStins,
+                style = MaterialTheme.typography.bodyMedium
+            )
+            Text(
+                if (setari.pauzeMaiLungi) "da" else "nu",
+                color = Aur,
+                style = MaterialTheme.typography.bodyMedium
+            )
+        }
+
+        if (voci.isNotEmpty()) {
+            Spacer(Modifier.height(6.dp))
+            Text("Vocea", color = PergamStins, style = MaterialTheme.typography.bodyMedium)
+            Spacer(Modifier.height(6.dp))
+            Column(Modifier.heightIn(max = 150.dp).verticalScroll(rememberScrollState())) {
+                for (v in voci) {
+                    val activ = v.id == setari.vocePreferata
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(2.dp))
+                            .background(if (activ) Aur.copy(alpha = 0.14f) else Color.Transparent)
+                            .clickable {
+                                onSetari(setari.copy(vocePreferata = v.id))
+                                onSchimbare()
+                            }
+                            .padding(horizontal = 10.dp, vertical = 10.dp)
+                    ) {
+                        Text(
+                            v.nume,
+                            color = if (activ) Aur else Pergam.copy(alpha = 0.9f),
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
+                }
+            }
+        } else {
+            Spacer(Modifier.height(6.dp))
+            Text(
+                "Nu am găsit voci românești pe telefon. Instalează Google Text-to-Speech " +
+                        "din Play Store și alege-l ca motor de citire în setările telefonului.",
+                color = PergamStins.copy(alpha = 0.85f),
+                style = MaterialTheme.typography.bodyMedium
+            )
+        }
+    }
+}
+
+@Composable
 private fun ButonBara(icon: ImageVector, eticheta: String, activ: Boolean, onClick: () -> Unit) {
     Column(
         Modifier
             .clip(RoundedCornerShape(3.dp))
             .clickable { onClick() }
-            .padding(horizontal = 5.dp, vertical = 4.dp),
+            .padding(horizontal = 4.dp, vertical = 4.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Icon(icon, eticheta, tint = if (activ) Aur else Pergam, modifier = Modifier.size(23.dp))
+        Icon(icon, eticheta, tint = if (activ) Aur else Pergam, modifier = Modifier.size(22.dp))
         Spacer(Modifier.height(3.dp))
         Text(
             eticheta,
