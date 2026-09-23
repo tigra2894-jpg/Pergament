@@ -1,7 +1,17 @@
+import java.io.FileInputStream
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
+}
+
+val fisierCheie = rootProject.file("cheie.properties")
+val cheie = Properties()
+val areCheie = fisierCheie.exists()
+if (areCheie) {
+    cheie.load(FileInputStream(fisierCheie))
 }
 
 android {
@@ -12,13 +22,27 @@ android {
         applicationId = "ro.pergament"
         minSdk = 26
         targetSdk = 35
-        versionCode = 2
-        versionName = "1.1"
+        versionCode = 3
+        versionName = "1.2"
+    }
+
+    signingConfigs {
+        if (areCheie) {
+            create("publicare") {
+                storeFile = rootProject.file(cheie.getProperty("storeFile"))
+                storePassword = cheie.getProperty("storePassword")
+                keyAlias = cheie.getProperty("keyAlias")
+                keyPassword = cheie.getProperty("keyPassword")
+            }
+        }
     }
 
     buildTypes {
         release {
             isMinifyEnabled = false
+            if (areCheie) {
+                signingConfig = signingConfigs.getByName("publicare")
+            }
         }
     }
 
