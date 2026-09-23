@@ -75,6 +75,7 @@ fun EcranBiblioteca(
     onSterge: (Carte) -> Unit,
     onFavorita: (Carte) -> Unit,
     onModifica: (Carte, String, String, String) -> Unit,
+    onSchimbaCoperta: (Carte) -> Unit,
     onSetari: () -> Unit
 ) {
     var cautare by remember { mutableStateOf("") }
@@ -265,6 +266,10 @@ fun EcranBiblioteca(
 
                     Spacer(Modifier.height(18.dp))
 
+                    RandMeniu("Schimbă coperta", Aur) {
+                        onSchimbaCoperta(c)
+                        meniuPentru = null
+                    }
                     RandMeniu("Modifică titlul, autorul, raftul", Aur) {
                         editeaza = c
                         meniuPentru = null
