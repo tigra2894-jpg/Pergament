@@ -25,6 +25,7 @@ import kotlinx.coroutines.withContext
 import ro.pergament.data.Biblioteca
 import ro.pergament.data.Carte
 import ro.pergament.data.Coperti
+import ro.pergament.data.Depozit
 import ro.pergament.data.Import
 import ro.pergament.data.Rafturi
 import ro.pergament.data.Rezerva
@@ -81,9 +82,10 @@ fun Aplicatia() {
         scop.launch(Dispatchers.IO) { Biblioteca.salveaza(ctx, lista) }
     }
 
-    fun stergeFisiereLegate(c: Carte) {
+    fun stergeTot(c: Carte) {
         scop.launch(Dispatchers.IO) {
             try {
+                Depozit.sterge(ctx, c.id, c.format)
                 c.coperta?.let { File(it).delete() }
                 File(ctx.filesDir, "texte/${c.id}.txt").delete()
                 File(ctx.cacheDir, "cbz/${c.id}").deleteRecursively()
@@ -98,17 +100,12 @@ fun Aplicatia() {
         if (uriuri.isNotEmpty()) {
             seIncarca = true
             scop.launch {
-                val existenteUri = carti.map { it.uri }.toMutableSet()
                 val existenteAmprente = carti.map { amprenta(it) }.toMutableSet()
                 val noi = mutableListOf<Carte>()
                 var dubluri = 0
 
                 withContext(Dispatchers.IO) {
                     for (u in uriuri) {
-                        if (existenteUri.contains(u.toString())) {
-                            dubluri++
-                            continue
-                        }
                         val c = try {
                             Import.adauga(ctx, u)
                         } catch (e: Exception) {
@@ -119,12 +116,12 @@ fun Aplicatia() {
                         if (existenteAmprente.contains(a)) {
                             dubluri++
                             try {
+                                Depozit.sterge(ctx, c.id, c.format)
                                 c.coperta?.let { File(it).delete() }
                             } catch (e: Exception) {
                             }
                             continue
                         }
-                        existenteUri.add(c.uri)
                         existenteAmprente.add(a)
                         noi.add(c)
                     }
@@ -292,9 +289,7 @@ fun Aplicatia() {
                         }
                     }
                 },
-                onGalerie = {
-                    alegatorPoza.launch(arrayOf("image/*"))
-                },
+                onGalerie = { alegatorPoza.launch(arrayOf("image/*")) },
                 onInapoi = { copertaPentru = null }
             )
         }
@@ -329,7 +324,7 @@ fun Aplicatia() {
                     )
                 },
                 onSterge = { c ->
-                    stergeFisiereLegate(c)
+                    stergeTot(c)
                     salveaza(carti.filter { it.id != c.id })
                 },
                 onFavorita = { c ->
