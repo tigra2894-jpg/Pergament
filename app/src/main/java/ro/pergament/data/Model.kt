@@ -116,15 +116,18 @@ data class Setari(
     val intoarcereCurl: Boolean = true,
     val taiePdf: Boolean = true,
     val pdfCaText: Boolean = true,
-    // confort
     val ecranAprins: Boolean = true,
     val avansAutomat: Boolean = true,
-    val luminozitate: Float = -1f,      // -1 inseamna "cat are telefonul"
+    val luminozitate: Float = -1f,
     val noapteAutomat: Boolean = false,
     val oraNoapte: Int = 21,
-    val oraZi: Int = 7
+    val oraZi: Int = 7,
+    // voce
+    val vitezaVoce: Float = 0.94f,
+    val tonVoce: Float = 0.96f,
+    val vocePreferata: String = "",
+    val pauzeMaiLungi: Boolean = true
 ) {
-    /** Tema care trebuie folosita acum, tinand cont de ora daca e pornit modul automat. */
     fun temaAcum(): Int {
         if (!noapteAutomat) return tema
         val h = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
@@ -155,7 +158,11 @@ object SetariStore {
                 luminozitate = o.optDouble("luminozitate", -1.0).toFloat(),
                 noapteAutomat = o.optBoolean("noapteAutomat", false),
                 oraNoapte = o.optInt("oraNoapte", 21),
-                oraZi = o.optInt("oraZi", 7)
+                oraZi = o.optInt("oraZi", 7),
+                vitezaVoce = o.optDouble("vitezaVoce", 0.94).toFloat(),
+                tonVoce = o.optDouble("tonVoce", 0.96).toFloat(),
+                vocePreferata = o.optString("vocePreferata", ""),
+                pauzeMaiLungi = o.optBoolean("pauzeMaiLungi", true)
             )
         } catch (e: Exception) {
             Setari()
@@ -178,6 +185,10 @@ object SetariStore {
             o.put("noapteAutomat", s.noapteAutomat)
             o.put("oraNoapte", s.oraNoapte)
             o.put("oraZi", s.oraZi)
+            o.put("vitezaVoce", s.vitezaVoce.toDouble())
+            o.put("tonVoce", s.tonVoce.toDouble())
+            o.put("vocePreferata", s.vocePreferata)
+            o.put("pauzeMaiLungi", s.pauzeMaiLungi)
             fisier(ctx).writeText(o.toString())
         } catch (e: Exception) {
         }
