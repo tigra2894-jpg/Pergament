@@ -1,259 +1,365 @@
-package ro.pergament.ui
+package ro.pergament
 
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
+import android.content.Context
+import android.net.Uri
+import android.os.Bundle
+import android.widget.Toast
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.systemBarsPadding
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.pager.HorizontalPager
-import androidx.compose.foundation.pager.rememberPagerState
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AutoStories
-import androidx.compose.material.icons.filled.Headphones
-import androidx.compose.material.icons.filled.LibraryBooks
-import androidx.compose.material.icons.filled.MenuBook
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
+import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.ui.Alignment
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.LocalContext
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import ro.pergament.data.Biblioteca
+import ro.pergament.data.Carte
+import ro.pergament.data.Coperti
+import ro.pergament.data.Depozit
+import ro.pergament.data.Import
+import ro.pergament.data.Rafturi
+import ro.pergament.data.Rezerva
+import ro.pergament.data.Setari
+import ro.pergament.data.SetariStore
+import ro.pergament.ui.EcranAlegereCoperta
+import ro.pergament.ui.EcranBiblioteca
+import ro.pergament.ui.EcranBunVenit
+import ro.pergament.ui.EcranLectura
+import ro.pergament.ui.EcranSetari
+import ro.pergament.ui.Noapte
+import ro.pergament.ui.PergamentTheme
+import java.io.File
 
-private data class Pagina(
-    val icon: ImageVector,
-    val titlu: String,
-    val text: String
-)
+class MainActivity : ComponentActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContent {
+            PergamentTheme {
+                Surface(modifier = Modifier.fillMaxSize(), color = Noapte) {
+                    Aplicatia()
+                }
+            }
+        }
+    }
+}
 
-private val PAGINI = listOf(
-    Pagina(
-        Icons.Filled.LibraryBooks,
-        "Biblioteca ta, ca acasă",
-        "Cărțile tale stau pe rafturi de lemn, fiecare la genul ei. " +
-                "Cele fără copertă primesc legătură de piele, cu titlul presat în aur."
-    ),
-    Pagina(
-        Icons.Filled.AutoStories,
-        "Telefonul devine carte",
-        "Apuci colțul paginii cu degetul și îl tragi. Pagina se îndoaie, " +
-                "vezi umbra ei pe foaia de dedesubt, exact ca la o carte adevărată."
-    ),
-    Pagina(
-        Icons.Filled.Headphones,
-        "Citește sau ascultă",
-        "PDF, EPUB, TXT și benzi desenate. Mărești litera cât vrei, " +
-                "alegi hârtia, pui semne și notițe. Sau lași cartea să-ți citească ea."
-    )
+private fun amprenta(c: Carte): String {
+    val t = Rafturi.faraDiacritice(c.titlu).replace(Regex("[^a-z0-9]"), "")
+    return t + "|" + c.format + "|" + c.totalPagini
+}
+
+private val FORMATE = arrayOf(
+    "application/pdf",
+    "application/epub+zip",
+    "text/plain",
+    "application/zip",
+    "application/x-cbz",
+    "application/octet-stream"
 )
 
 @Composable
-fun EcranBunVenit(onGata: () -> Unit) {
-    val piele = texturaPiele()
-    val stare = rememberPagerState(pageCount = { PAGINI.size })
+fun Aplicatia() {
+    val ctx = LocalContext.current
     val scop = rememberCoroutineScope()
-    val ultima = stare.currentPage == PAGINI.size - 1
+    val prefs = remember { ctx.getSharedPreferences("pergament", Context.MODE_PRIVATE) }
 
-    Box(
-        Modifier
-            .fillMaxSize()
-            .background(Noapte)
-            .textura(piele)
-            .background(
-                Brush.verticalGradient(
-                    listOf(
-                        Noapte.copy(alpha = 0.88f),
-                        Noapte.copy(alpha = 0.74f),
-                        Noapte.copy(alpha = 0.94f)
-                    )
-                )
+    var carti by remember { mutableStateOf<List<Carte>>(emptyList()) }
+    var setari by remember { mutableStateOf(Setari()) }
+    var deschisa by remember { mutableStateOf<String?>(null) }
+    var ecranSetari by remember { mutableStateOf(false) }
+    var copertaPentru by remember { mutableStateOf<String?>(null) }
+    var seIncarca by remember { mutableStateOf(false) }
+    var lucreaza by remember { mutableStateOf(false) }
+    var bunVenit by remember { mutableStateOf(!prefs.getBoolean("bun_venit_vazut", false)) }
+
+    LaunchedEffect(Unit) {
+        val c = withContext(Dispatchers.IO) { Biblioteca.incarca(ctx) }
+        val s = withContext(Dispatchers.IO) { SetariStore.incarca(ctx) }
+        carti = c
+        setari = s
+        if (c.isNotEmpty()) {
+            bunVenit = false
+            prefs.edit().putBoolean("bun_venit_vazut", true).apply()
+        }
+    }
+
+    fun salveaza(lista: List<Carte>) {
+        carti = lista
+        scop.launch(Dispatchers.IO) { Biblioteca.salveaza(ctx, lista) }
+    }
+
+    fun stergeTot(c: Carte) {
+        scop.launch(Dispatchers.IO) {
+            try {
+                Depozit.sterge(ctx, c.id, c.format)
+                c.coperta?.let { File(it).delete() }
+                File(ctx.filesDir, "texte/${c.id}.txt").delete()
+                File(ctx.cacheDir, "cbz/${c.id}").deleteRecursively()
+            } catch (e: Exception) {
+            }
+        }
+    }
+
+    val selector = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenMultipleDocuments()
+    ) { uriuri: List<Uri> ->
+        if (uriuri.isNotEmpty()) {
+            seIncarca = true
+            scop.launch {
+                val existenteAmprente = carti.map { amprenta(it) }.toMutableSet()
+                val noi = mutableListOf<Carte>()
+                var dubluri = 0
+
+                withContext(Dispatchers.IO) {
+                    for (u in uriuri) {
+                        val c = try {
+                            Import.adauga(ctx, u)
+                        } catch (e: Exception) {
+                            null
+                        } ?: continue
+
+                        val a = amprenta(c)
+                        if (existenteAmprente.contains(a)) {
+                            dubluri++
+                            try {
+                                Depozit.sterge(ctx, c.id, c.format)
+                                c.coperta?.let { File(it).delete() }
+                            } catch (e: Exception) {
+                            }
+                            continue
+                        }
+                        existenteAmprente.add(a)
+                        noi.add(c)
+                    }
+                }
+
+                salveaza(carti + noi)
+                seIncarca = false
+
+                val mesaj = when {
+                    noi.isEmpty() && dubluri > 0 ->
+                        if (dubluri == 1) "Cartea era deja în bibliotecă."
+                        else "Toate cele $dubluri cărți erau deja în bibliotecă."
+                    dubluri > 0 ->
+                        "Am adăugat ${noi.size}. " +
+                                (if (dubluri == 1) "Una era deja pe raft." else "$dubluri erau deja pe raft.")
+                    noi.size == 1 -> "Am adăugat o carte."
+                    noi.size > 1 -> "Am adăugat ${noi.size} cărți."
+                    else -> null
+                }
+                if (mesaj != null) Toast.makeText(ctx, mesaj, Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    val salvatorCopie = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json")
+    ) { uri: Uri? ->
+        if (uri != null) {
+            lucreaza = true
+            scop.launch {
+                val mesaj = withContext(Dispatchers.IO) {
+                    Rezerva.salveaza(ctx, uri, carti, setari)
+                }
+                lucreaza = false
+                Toast.makeText(ctx, mesaj, Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+
+    val cititorCopie = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            lucreaza = true
+            scop.launch {
+                val rez = withContext(Dispatchers.IO) {
+                    Rezerva.restaureaza(ctx, uri, carti)
+                }
+                if (rez.reusit) {
+                    salveaza(rez.carti)
+                    rez.setari?.let { s ->
+                        setari = s
+                        withContext(Dispatchers.IO) { SetariStore.salveaza(ctx, s) }
+                    }
+                }
+                lucreaza = false
+                Toast.makeText(ctx, rez.mesaj, Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+
+    val alegatorPoza = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri: Uri? ->
+        val id = copertaPentru
+        if (uri != null && id != null) {
+            val carte = carti.firstOrNull { it.id == id }
+            if (carte != null) {
+                scop.launch {
+                    val cale = withContext(Dispatchers.IO) {
+                        Coperti.dinImagine(ctx, uri, carte.id)
+                    }
+                    if (cale != null) {
+                        salveaza(carti.map {
+                            if (it.id == carte.id) it.copy(coperta = cale) else it
+                        })
+                        copertaPentru = null
+                        Toast.makeText(ctx, "Coperta a fost schimbată.", Toast.LENGTH_SHORT).show()
+                    } else {
+                        Toast.makeText(ctx, "Poza nu a putut fi folosită.", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
+        }
+    }
+
+    val carteDeschisa = carti.firstOrNull { it.id == deschisa }
+    val carteCoperta = carti.firstOrNull { it.id == copertaPentru }
+
+    BackHandler(enabled = carteDeschisa != null || ecranSetari || carteCoperta != null) {
+        when {
+            carteDeschisa != null -> deschisa = null
+            carteCoperta != null -> copertaPentru = null
+            else -> ecranSetari = false
+        }
+    }
+
+    when {
+        bunVenit -> {
+            EcranBunVenit(
+                onGata = {
+                    prefs.edit().putBoolean("bun_venit_vazut", true).apply()
+                    bunVenit = false
+                },
+                onAdauga = {
+                    prefs.edit().putBoolean("bun_venit_vazut", true).apply()
+                    bunVenit = false
+                    selector.launch(FORMATE)
+                }
             )
-    ) {
-        Column(
-            Modifier
-                .fillMaxSize()
-                .systemBarsPadding()
-        ) {
-            Column(
-                Modifier
-                    .fillMaxWidth()
-                    .padding(top = 42.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Text(
-                    "Pergament",
-                    style = MaterialTheme.typography.displayLarge,
-                    color = Pergam
-                )
-                Spacer(Modifier.height(10.dp))
-                Box(
-                    Modifier
-                        .width(72.dp)
-                        .height(1.dp)
-                        .background(Aur.copy(alpha = 0.8f))
-                )
-            }
+        }
 
-            HorizontalPager(
-                state = stare,
-                modifier = Modifier.weight(1f)
-            ) { index ->
-                val p = PAGINI[index]
-                Column(
-                    Modifier
-                        .fillMaxSize()
-                        .padding(horizontal = 34.dp),
-                    verticalArrangement = Arrangement.Center,
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Box(
-                        Modifier
-                            .size(96.dp)
-                            .clip(RoundedCornerShape(3.dp))
-                            .background(
-                                Brush.linearGradient(
-                                    listOf(
-                                        Color(0xFF3A2A1C),
-                                        Color(0xFF241A11)
-                                    )
-                                )
-                            )
-                            .border(0.8.dp, Aur.copy(alpha = 0.45f), RoundedCornerShape(3.dp)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        androidx.compose.material3.Icon(
-                            p.icon,
-                            contentDescription = null,
-                            tint = Aur,
-                            modifier = Modifier.size(42.dp)
-                        )
-                    }
+        carteDeschisa != null -> {
+            EcranLectura(
+                carte = carteDeschisa,
+                setari = setari,
+                onSetari = { s ->
+                    setari = s
+                    scop.launch(Dispatchers.IO) { SetariStore.salveaza(ctx, s) }
+                },
+                onProgres = { pagina, total ->
+                    salveaza(carti.map {
+                        if (it.id == carteDeschisa.id)
+                            it.copy(paginaCurenta = pagina, totalPagini = total)
+                        else it
+                    })
+                },
+                onSemn = { pagina ->
+                    salveaza(carti.map {
+                        if (it.id == carteDeschisa.id) {
+                            val s = if (it.semne.contains(pagina)) it.semne - pagina
+                            else (it.semne + pagina).sorted()
+                            it.copy(semne = s)
+                        } else it
+                    })
+                },
+                onNotita = { n ->
+                    salveaza(carti.map {
+                        if (it.id == carteDeschisa.id) it.copy(notite = it.notite + n) else it
+                    })
+                },
+                onStergeNotita = { n ->
+                    salveaza(carti.map {
+                        if (it.id == carteDeschisa.id)
+                            it.copy(notite = it.notite.filter { x ->
+                                !(x.pagina == n.pagina && x.creat == n.creat && x.text == n.text)
+                            })
+                        else it
+                    })
+                },
+                onInapoi = { deschisa = null }
+            )
+        }
 
-                    Spacer(Modifier.height(34.dp))
-
-                    Text(
-                        p.titlu,
-                        color = Pergam,
-                        fontFamily = FontFamily.Serif,
-                        fontWeight = FontWeight.Medium,
-                        fontSize = 23.sp,
-                        lineHeight = 30.sp,
-                        textAlign = TextAlign.Center
-                    )
-
-                    Spacer(Modifier.height(16.dp))
-
-                    Text(
-                        p.text,
-                        color = PergamStins,
-                        fontFamily = FontFamily.Serif,
-                        fontSize = 16.sp,
-                        lineHeight = 25.sp,
-                        textAlign = TextAlign.Center
-                    )
-                }
-            }
-
-            Row(
-                Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 26.dp),
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                for (i in PAGINI.indices) {
-                    val activ = i == stare.currentPage
-                    val latime by animateFloatAsState(
-                        targetValue = if (activ) 22f else 7f,
-                        animationSpec = tween(250),
-                        label = "punct"
-                    )
-                    Box(
-                        Modifier
-                            .padding(horizontal = 3.dp)
-                            .width(latime.dp)
-                            .height(4.dp)
-                            .clip(RoundedCornerShape(2.dp))
-                            .background(if (activ) Aur else AurStins.copy(alpha = 0.35f))
-                    )
-                }
-            }
-
-            Column(
-                Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 30.dp, vertical = 20.dp)
-            ) {
-                Box(
-                    Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(2.dp))
-                        .background(Brush.verticalGradient(listOf(Aur, AurStins)))
-                        .clickable {
-                            if (ultima) onGata()
-                            else scop.launch { stare.animateScrollToPage(stare.currentPage + 1) }
+        carteCoperta != null -> {
+            EcranAlegereCoperta(
+                carte = carteCoperta,
+                onPiele = {
+                    scop.launch(Dispatchers.IO) { Coperti.sterge(ctx, carteCoperta.id) }
+                    salveaza(carti.map {
+                        if (it.id == carteCoperta.id) it.copy(coperta = null) else it
+                    })
+                    copertaPentru = null
+                    Toast.makeText(ctx, "Cartea a primit legătură de piele.", Toast.LENGTH_SHORT).show()
+                },
+                onPagina = { pagina ->
+                    scop.launch {
+                        val cale = withContext(Dispatchers.IO) {
+                            Coperti.dinPagina(ctx, carteCoperta.uri, pagina, carteCoperta.id)
                         }
-                        .padding(vertical = 16.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        if (ultima) {
-                            androidx.compose.material3.Icon(
-                                Icons.Filled.MenuBook,
-                                contentDescription = null,
-                                tint = Noapte,
-                                modifier = Modifier.size(19.dp)
-                            )
-                            Spacer(Modifier.width(9.dp))
+                        if (cale != null) {
+                            salveaza(carti.map {
+                                if (it.id == carteCoperta.id) it.copy(coperta = cale) else it
+                            })
+                            copertaPentru = null
+                            Toast.makeText(ctx, "Coperta a fost schimbată.", Toast.LENGTH_SHORT).show()
+                        } else {
+                            Toast.makeText(ctx, "Pagina nu a putut fi folosită.", Toast.LENGTH_SHORT).show()
                         }
-                        Text(
-                            if (ultima) "Adaugă prima carte" else "Mai departe",
-                            color = Noapte,
-                            style = MaterialTheme.typography.titleMedium
-                        )
                     }
-                }
+                },
+                onGalerie = { alegatorPoza.launch(arrayOf("image/*")) },
+                onInapoi = { copertaPentru = null }
+            )
+        }
 
-                Spacer(Modifier.height(10.dp))
+        ecranSetari -> {
+            EcranSetari(
+                carti = carti,
+                lucreaza = lucreaza,
+                onSalveazaCopie = { salvatorCopie.launch(Rezerva.numeFisier()) },
+                onRestaureaza = {
+                    cititorCopie.launch(arrayOf("application/json", "text/plain", "*/*"))
+                },
+                onInapoi = { ecranSetari = false }
+            )
+        }
 
-                Box(
-                    Modifier
-                        .fillMaxWidth()
-                        .clickable { onGata() }
-                        .padding(vertical = 12.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        if (ultima) "Intru mai târziu" else "Sari peste",
-                        color = PergamStins,
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                }
-            }
+        else -> {
+            EcranBiblioteca(
+                carti = carti,
+                seIncarca = seIncarca,
+                onDeschide = { deschisa = it.id },
+                onAdauga = { selector.launch(FORMATE) },
+                onSterge = { c ->
+                    stergeTot(c)
+                    salveaza(carti.filter { it.id != c.id })
+                },
+                onFavorita = { c ->
+                    salveaza(carti.map { if (it.id == c.id) it.copy(favorita = !it.favorita) else it })
+                },
+                onModifica = { c, titlu, autor, raft ->
+                    salveaza(carti.map {
+                        if (it.id == c.id) it.copy(titlu = titlu, autor = autor, raft = raft)
+                        else it
+                    })
+                    Toast.makeText(ctx, "Datele cărții au fost salvate.", Toast.LENGTH_SHORT).show()
+                },
+                onSchimbaCoperta = { c -> copertaPentru = c.id },
+                onSetari = { ecranSetari = true }
+            )
         }
     }
 }
