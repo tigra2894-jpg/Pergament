@@ -22,12 +22,45 @@ jobs:
         with:
           gradle-version: '8.9'
 
-      - name: Construieste APK-ul
+      - name: Pune cheia de semnatura
+        if: ${{ secrets.CHEIE_BASE64 != '' }}
+        env:
+          CHEIE: ${{ secrets.CHEIE_BASE64 }}
+          PAROLA: ${{ secrets.PAROLA_CHEIE }}
+          ALIAS: ${{ secrets.ALIAS_CHEIE }}
+        run: |
+          echo "$CHEIE" | base64 -d > pergament.jks
+          cat > cheie.properties <<EOF
+          storeFile=pergament.jks
+          storePassword=$PAROLA
+          keyAlias=$ALIAS
+          keyPassword=$PAROLA
+          EOF
+          echo "Cheia e pregatita."
+
+      - name: Construieste APK-ul de incercare
         run: gradle assembleDebug --no-daemon --stacktrace
 
-      - name: Urca APK-ul
+      - name: Construieste APK-ul de publicare
+        if: ${{ secrets.CHEIE_BASE64 != '' }}
+        run: gradle assembleRelease --no-daemon --stacktrace
+
+      - name: Sterge urmele cheii
+        if: always()
+        run: |
+          rm -f pergament.jks cheie.properties
+
+      - name: Urca APK-ul de incercare
         uses: actions/upload-artifact@v4
         with:
           name: Pergament-APK
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
+
+      - name: Urca APK-ul pentru Play Store
+        if: ${{ secrets.CHEIE_BASE64 != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: Pergament-PENTRU-PLAY-STORE
+          path: app/build/outputs/apk/release/app-release.apk
+          if-no-files-found: warn
