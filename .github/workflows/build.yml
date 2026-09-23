@@ -4,6 +4,9 @@ on:
   push:
   workflow_dispatch:
 
+env:
+  ARE_CHEIE: ${{ secrets.CHEIE_BASE64 != '' }}
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -23,7 +26,7 @@ jobs:
           gradle-version: '8.9'
 
       - name: Pune cheia de semnatura
-        if: ${{ secrets.CHEIE_BASE64 != '' }}
+        if: env.ARE_CHEIE == 'true'
         env:
           CHEIE: ${{ secrets.CHEIE_BASE64 }}
           PAROLA: ${{ secrets.PAROLA_CHEIE }}
@@ -42,13 +45,12 @@ jobs:
         run: gradle assembleDebug --no-daemon --stacktrace
 
       - name: Construieste APK-ul de publicare
-        if: ${{ secrets.CHEIE_BASE64 != '' }}
+        if: env.ARE_CHEIE == 'true'
         run: gradle assembleRelease --no-daemon --stacktrace
 
       - name: Sterge urmele cheii
         if: always()
-        run: |
-          rm -f pergament.jks cheie.properties
+        run: rm -f pergament.jks cheie.properties
 
       - name: Urca APK-ul de incercare
         uses: actions/upload-artifact@v4
@@ -58,7 +60,7 @@ jobs:
           if-no-files-found: error
 
       - name: Urca APK-ul pentru Play Store
-        if: ${{ secrets.CHEIE_BASE64 != '' }}
+        if: env.ARE_CHEIE == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: Pergament-PENTRU-PLAY-STORE
