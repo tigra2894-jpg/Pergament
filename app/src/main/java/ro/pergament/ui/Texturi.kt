@@ -26,9 +26,9 @@ import androidx.compose.ui.unit.dp
 import ro.pergament.R
 
 /**
- * Texturile se incarca o singura data si se tin minte.
+ * Texturile se citesc o singura data de pe disc si se tin minte.
  * inScaled = false: Android nu le mai umfla dupa densitatea ecranului,
- * altfel fiecare ar ocupa de 7 ori mai multa memorie.
+ * altfel fiecare ar ocupa de cateva ori mai multa memorie.
  */
 object Texturi {
     private val cache = HashMap<Int, ImageBitmap>()
@@ -48,7 +48,7 @@ object Texturi {
     }
 }
 
-/** Face din textura o pensula care se repeta la nesfarsit, la scara ceruta. */
+/** Face din textura o pensula care se repeta la nesfarsit. */
 @Composable
 fun rememberTextura(id: Int, scara: Float = 1f): Brush? {
     val ctx = LocalContext.current
@@ -64,53 +64,59 @@ fun rememberTextura(id: Int, scara: Float = 1f): Brush? {
     }
 }
 
-@Composable
-fun texturaPiele(): Brush? = rememberTextura(R.drawable.textura_piele, 0.8f)
+// ---------- materialele aplicatiei ----------
 
-@Composable
-fun texturaLemn(): Brush? = rememberTextura(R.drawable.textura_lemn, 0.35f)
+@Composable fun pieleMaro(s: Float = 0.55f) = rememberTextura(R.drawable.piele_maro, s)
+@Composable fun pieleVisinie(s: Float = 0.55f) = rememberTextura(R.drawable.piele_visinie, s)
+@Composable fun pieleVerde(s: Float = 0.55f) = rememberTextura(R.drawable.piele_verde, s)
+@Composable fun pieleAlbastra(s: Float = 0.55f) = rememberTextura(R.drawable.piele_albastra, s)
+@Composable fun pieleCaramel(s: Float = 0.55f) = rememberTextura(R.drawable.piele_caramel, s)
 
-@Composable
-fun texturaPergament(): Brush? = rememberTextura(R.drawable.textura_pergament, 1f)
+@Composable fun lemnStejar(s: Float = 0.42f) = rememberTextura(R.drawable.lemn_stejar, s)
+@Composable fun lemnNuc(s: Float = 0.75f) = rememberTextura(R.drawable.lemn_nuc, s)
+@Composable fun catifea(s: Float = 0.50f) = rememberTextura(R.drawable.catifea, s)
+@Composable fun aurFoita(s: Float = 0.30f) = rememberTextura(R.drawable.aur, s)
+@Composable fun hartieVeche(s: Float = 0.80f) = rememberTextura(R.drawable.hartie_veche, s)
+@Composable fun hartieCrem(s: Float = 0.80f) = rememberTextura(R.drawable.hartie_crem, s)
 
-@Composable
-fun texturaHartie(): Brush? = rememberTextura(R.drawable.textura_hartie, 1f)
-
-@Composable
-fun texturaPanza(): Brush? = rememberTextura(R.drawable.textura_panza, 0.6f)
-
-/** Deseneaza textura sub continut. Daca textura lipseste, nu face nimic. */
-fun Modifier.textura(brush: Brush?, alpha: Float = 1f): Modifier =
+/** Pune materialul ca fundal. Daca lipseste, nu face nimic. */
+fun Modifier.material(brush: Brush?, alpha: Float = 1f): Modifier =
     if (brush == null) this
     else this.drawBehind { drawRect(brush, alpha = alpha) }
 
-/**
- * Pune textura PESTE continut, amestecata prin inmultire:
- * culorile raman, dar capata firul si petele texturii.
- */
-fun Modifier.texturaPeste(brush: Brush?, alpha: Float): Modifier =
+/** Pune materialul PESTE continut, ca sa-i dea fir si relief. */
+fun Modifier.materialPeste(brush: Brush?, alpha: Float): Modifier =
     if (brush == null) this
     else this.drawWithContent {
         drawContent()
         drawRect(brush, alpha = alpha, blendMode = BlendMode.Multiply)
     }
 
+// numele vechi, ca sa nu se strice restul codului
+fun Modifier.textura(brush: Brush?, alpha: Float = 1f) = material(brush, alpha)
+fun Modifier.texturaPeste(brush: Brush?, alpha: Float) = materialPeste(brush, alpha)
+
+@Composable fun texturaPiele() = pieleMaro(0.85f)
+@Composable fun texturaLemn() = lemnStejar()
+@Composable fun texturaPergament() = hartieVeche()
+@Composable fun texturaHartie() = hartieCrem()
+@Composable fun texturaPanza() = catifea()
+
 /**
- * Scandura de lemn de sub fiecare raft:
- * fibra lemnului, muchie luminata sus, muchie in umbra jos,
- * si umbra pe care o arunca raftul dedesubt.
+ * Scandura raftului: lemn adevarat, muchie luminata sus,
+ * fata mai intunecata jos si umbra aruncata dedesubt.
  */
 @Composable
 fun ScanduraRaft(modifier: Modifier = Modifier) {
-    val lemn = texturaLemn()
+    val lemn = lemnStejar(0.38f)
     Canvas(
         modifier
             .fillMaxWidth()
-            .height(24.dp)
+            .height(26.dp)
     ) {
         val w = size.width
         val h = size.height
-        val grosime = h * 0.58f
+        val grosime = h * 0.60f
 
         if (lemn != null) {
             drawRect(lemn, size = Size(w, grosime))
@@ -118,37 +124,37 @@ fun ScanduraRaft(modifier: Modifier = Modifier) {
             drawRect(Color(0xFF5A3A20), size = Size(w, grosime))
         }
 
-        // lumina calda pe muchia de sus
-        drawRect(Color(0xFFF2CB84).copy(alpha = 0.42f), size = Size(w, 2.2f))
+        // muchia de sus prinde lumina
+        drawRect(Color(0xFFFFE2A8).copy(alpha = 0.34f), size = Size(w, 2f))
         drawRect(
             Brush.verticalGradient(
-                0f to Color(0xFFF2CB84).copy(alpha = 0.18f),
+                0f to Color.White.copy(alpha = 0.14f),
                 1f to Color.Transparent,
                 startY = 0f,
-                endY = grosime * 0.45f
+                endY = grosime * 0.40f
             ),
-            size = Size(w, grosime * 0.45f)
+            size = Size(w, grosime * 0.40f)
         )
 
-        // partea din fata a scandurii, mai intunecata spre jos
+        // fata scandurii se intuneca spre jos
         drawRect(
             Brush.verticalGradient(
                 0f to Color.Transparent,
-                1f to Color.Black.copy(alpha = 0.50f),
-                startY = grosime * 0.45f,
+                1f to Color.Black.copy(alpha = 0.52f),
+                startY = grosime * 0.40f,
                 endY = grosime
             ),
-            topLeft = Offset(0f, grosime * 0.45f),
-            size = Size(w, grosime * 0.55f)
+            topLeft = Offset(0f, grosime * 0.40f),
+            size = Size(w, grosime * 0.60f)
         )
 
-        // capetele raftului se pierd in intuneric
+        // capetele se pierd in intuneric
         drawRect(
             Brush.horizontalGradient(
-                0f to Color.Black.copy(alpha = 0.55f),
-                0.12f to Color.Transparent,
-                0.88f to Color.Transparent,
-                1f to Color.Black.copy(alpha = 0.55f)
+                0f to Color.Black.copy(alpha = 0.60f),
+                0.10f to Color.Transparent,
+                0.90f to Color.Transparent,
+                1f to Color.Black.copy(alpha = 0.60f)
             ),
             size = Size(w, grosime)
         )
@@ -156,7 +162,7 @@ fun ScanduraRaft(modifier: Modifier = Modifier) {
         // umbra aruncata sub raft
         drawRect(
             Brush.verticalGradient(
-                0f to Color.Black.copy(alpha = 0.60f),
+                0f to Color.Black.copy(alpha = 0.62f),
                 1f to Color.Transparent,
                 startY = grosime,
                 endY = h
