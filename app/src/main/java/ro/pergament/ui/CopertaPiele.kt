@@ -1,7 +1,6 @@
 package ro.pergament.ui
 
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -10,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -27,236 +27,257 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.material3.Text
 import ro.pergament.data.Carte
 import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.sin
 
-/** Cum se leaga cartile de pe fiecare raft. */
-private data class Legatura(
-    val piele: Color,
-    val aur: Color,
-    val ornament: Ornament,
-    val titluSus: Boolean = false
-)
+/** Cum arata legatura cartilor de pe fiecare raft. */
+private enum class Legatura { MARO, VISINIE, VERDE, ALBASTRA, CARAMEL }
 
 private enum class Ornament {
-    CHENAR_INFLORAT,   // religie: chenar dublu cu colturi lucrate
-    SOBRU,             // filosofie: nimic, doar titlul
-    CHENAR_DUBLU,      // istorie
-    COLTURI_FINE,      // poezie
-    LINIE_SIMPLA,      // literatura
-    LINII_DREPTE,      // stiinte, tehnica
+    CHENAR_INFLORAT,   // religie
+    SOBRU,             // filosofie
+    CHENAR_DUBLU,      // istorie, afaceri, calatorii
+    COLTURI_FINE,      // poezie, arta
+    LINIE_SIMPLA,      // literatura, psihologie, sanatate
+    LINII_DREPTE,      // stiinte, tehnica, manuale
     VESEL,             // copii
-    RUSTIC,            // gatit
-    NATURAL            // limbi straine
+    RUSTIC             // gatit
 }
 
-private val LEGATURI = mapOf(
-    "Religie" to Legatura(Color(0xFF241014), Color(0xFFC9A227), Ornament.CHENAR_INFLORAT),
-    "Filosofie" to Legatura(Color(0xFF2E2118), Color(0xFFA98C4A), Ornament.SOBRU),
-    "Istorie" to Legatura(Color(0xFF22301F), Color(0xFFBE9F3F), Ornament.CHENAR_DUBLU),
-    "Poezie" to Legatura(Color(0xFF4A1824), Color(0xFFD3AE4E), Ornament.COLTURI_FINE),
-    "Literatură" to Legatura(Color(0xFF1B2A3E), Color(0xFFBFA45C), Ornament.LINIE_SIMPLA),
-    "Științe" to Legatura(Color(0xFF26292C), Color(0xFF9EA7AD), Ornament.LINII_DREPTE),
-    "Tehnică & Construcții" to Legatura(Color(0xFF2B2622), Color(0xFFA08B5F), Ornament.LINII_DREPTE),
-    "Psihologie" to Legatura(Color(0xFF2B2438), Color(0xFFB79CC4), Ornament.LINIE_SIMPLA),
-    "Afaceri & Bani" to Legatura(Color(0xFF1E2A26), Color(0xFFC0A85E), Ornament.CHENAR_DUBLU),
-    "Sănătate" to Legatura(Color(0xFF1F3330), Color(0xFFA9C0A0), Ornament.LINIE_SIMPLA),
-    "Artă & Muzică" to Legatura(Color(0xFF3A2436), Color(0xFFCBA36A), Ornament.COLTURI_FINE),
-    "Gătit" to Legatura(Color(0xFF4A2A18), Color(0xFFD6A263), Ornament.RUSTIC),
-    "Călătorii" to Legatura(Color(0xFF1D3540), Color(0xFFC3A868), Ornament.CHENAR_DUBLU),
-    "Limbi străine" to Legatura(Color(0xFF4A3520), Color(0xFFD8BE8A), Ornament.NATURAL),
-    "Copii" to Legatura(Color(0xFF6B2419), Color(0xFFEFC75E), Ornament.VESEL),
-    "Benzi desenate" to Legatura(Color(0xFF2A2430), Color(0xFFD0A84E), Ornament.LINII_DREPTE),
-    "Manuale & Ghiduri" to Legatura(Color(0xFF2C2C2A), Color(0xFFAFA070), Ornament.LINII_DREPTE),
-    "Diverse" to Legatura(Color(0xFF302A24), Color(0xFFB39864), Ornament.LINIE_SIMPLA)
+private data class Stil(val legatura: Legatura, val ornament: Ornament, val aur: Color)
+
+private val AUR_CALD = Color(0xFFD9B44A)
+private val AUR_STINS = Color(0xFFB09256)
+private val AUR_ALB = Color(0xFFDCC9A0)
+
+private val STILURI = mapOf(
+    "Religie" to Stil(Legatura.VISINIE, Ornament.CHENAR_INFLORAT, AUR_CALD),
+    "Filosofie" to Stil(Legatura.MARO, Ornament.SOBRU, AUR_STINS),
+    "Istorie" to Stil(Legatura.VERDE, Ornament.CHENAR_DUBLU, AUR_CALD),
+    "Poezie" to Stil(Legatura.VISINIE, Ornament.COLTURI_FINE, AUR_CALD),
+    "Literatură" to Stil(Legatura.ALBASTRA, Ornament.LINIE_SIMPLA, AUR_STINS),
+    "Științe" to Stil(Legatura.ALBASTRA, Ornament.LINII_DREPTE, AUR_ALB),
+    "Tehnică & Construcții" to Stil(Legatura.MARO, Ornament.LINII_DREPTE, AUR_STINS),
+    "Psihologie" to Stil(Legatura.VERDE, Ornament.LINIE_SIMPLA, AUR_STINS),
+    "Afaceri & Bani" to Stil(Legatura.VERDE, Ornament.CHENAR_DUBLU, AUR_CALD),
+    "Sănătate" to Stil(Legatura.VERDE, Ornament.LINIE_SIMPLA, AUR_ALB),
+    "Artă & Muzică" to Stil(Legatura.VISINIE, Ornament.COLTURI_FINE, AUR_CALD),
+    "Gătit" to Stil(Legatura.CARAMEL, Ornament.RUSTIC, AUR_STINS),
+    "Călătorii" to Stil(Legatura.ALBASTRA, Ornament.CHENAR_DUBLU, AUR_CALD),
+    "Limbi străine" to Stil(Legatura.CARAMEL, Ornament.LINIE_SIMPLA, AUR_STINS),
+    "Copii" to Stil(Legatura.VISINIE, Ornament.VESEL, AUR_CALD),
+    "Benzi desenate" to Stil(Legatura.ALBASTRA, Ornament.LINII_DREPTE, AUR_ALB),
+    "Manuale & Ghiduri" to Stil(Legatura.MARO, Ornament.LINII_DREPTE, AUR_STINS),
+    "Diverse" to Stil(Legatura.MARO, Ornament.LINIE_SIMPLA, AUR_STINS)
 )
 
-private val IMPLICITA = Legatura(Color(0xFF302A24), Color(0xFFB39864), Ornament.LINIE_SIMPLA)
-
-/** Fiecare carte primeste o nuanta proprie, calculata din titlul ei. */
-private fun Color.nuanta(seed: Int): Color {
-    val a = ((seed / 7) % 13 - 6) / 100f      // -0.06 .. +0.06
-    val b = ((seed / 3) % 11 - 5) / 130f
-    return Color(
-        (red + a).coerceIn(0.04f, 0.92f),
-        (green + b).coerceIn(0.03f, 0.88f),
-        (blue + a * 0.5f).coerceIn(0.03f, 0.88f),
-        alpha
-    )
-}
-
-private fun Color.inchis(f: Float) = Color(red * f, green * f, blue * f, alpha)
+private val IMPLICIT = Stil(Legatura.MARO, Ornament.LINIE_SIMPLA, AUR_STINS)
 
 @Composable
 fun CopertaPiele(carte: Carte) {
-    val panza = texturaPiele()
+    val stil = remember(carte.raft) { STILURI[carte.raft] ?: IMPLICIT }
     val seed = remember(carte.titlu) { abs(carte.titlu.hashCode()) }
-    val leg = remember(carte.raft) { LEGATURI[carte.raft] ?: IMPLICITA }
-    val piele = remember(leg, seed) { leg.piele.nuanta(seed) }
+
+    // fiecare carte primeste pielea putin altfel asezata, ca sa nu semene doua la fel
+    val scara = 0.46f + (seed % 7) * 0.035f
+    val piele = when (stil.legatura) {
+        Legatura.MARO -> pieleMaro(scara)
+        Legatura.VISINIE -> pieleVisinie(scara)
+        Legatura.VERDE -> pieleVerde(scara)
+        Legatura.ALBASTRA -> pieleAlbastra(scara)
+        Legatura.CARAMEL -> pieleCaramel(scara)
+    }
+    val foitaAur = aurFoita(0.22f)
 
     Box(
         Modifier
             .fillMaxSize()
-            .background(
-                Brush.linearGradient(
-                    0f to piele.inchis(1.18f),
-                    0.42f to piele,
-                    1f to piele.inchis(0.70f)
-                )
-            )
-            .texturaPeste(panza, 0.62f)
+            .material(piele)
     ) {
         Canvas(Modifier.fillMaxSize()) {
             val w = size.width
             val h = size.height
-            val aur = leg.aur
+            val aur = stil.aur
 
-            // cotorul: banda mai intunecata cu nervuri
-            val cotor = w * 0.13f
+            // ---------- cotorul ----------
+            val cotor = w * 0.135f
             drawRect(
                 Brush.horizontalGradient(
-                    0f to Color.Black.copy(alpha = 0.34f),
-                    0.55f to Color.Black.copy(alpha = 0.14f),
+                    0f to Color.Black.copy(alpha = 0.40f),
+                    0.50f to Color.Black.copy(alpha = 0.16f),
                     1f to Color.Transparent
                 ),
-                size = Size(cotor * 1.6f, h)
+                size = Size(cotor * 1.5f, h)
             )
+            // nervurile cotorului, ca la cartile cusute de mana
             for (i in 1..4) {
-                val y = h * (0.16f + i * 0.17f)
+                val y = h * (0.15f + i * 0.175f)
                 drawRect(
-                    aur.copy(alpha = 0.22f),
+                    Color.Black.copy(alpha = 0.30f),
+                    topLeft = Offset(0f, y - 2.2f),
+                    size = Size(cotor, 2.2f)
+                )
+                drawRect(
+                    Color.White.copy(alpha = 0.10f),
                     topLeft = Offset(0f, y),
                     size = Size(cotor, 1.4f)
                 )
                 drawRect(
-                    Color.Black.copy(alpha = 0.22f),
+                    aur.copy(alpha = 0.16f),
                     topLeft = Offset(0f, y + 1.4f),
-                    size = Size(cotor, 1.2f)
+                    size = Size(cotor, 1f)
                 )
             }
-            // muchia dintre cotor si fata
             drawRect(
-                Color.Black.copy(alpha = 0.26f),
+                Color.Black.copy(alpha = 0.28f),
                 topLeft = Offset(cotor, 0f),
-                size = Size(1.2f, h)
+                size = Size(1.3f, h)
             )
 
-            when (leg.ornament) {
+            // ---------- ornamentul, dupa gen ----------
+            when (stil.ornament) {
                 Ornament.CHENAR_INFLORAT -> chenarInflorat(w, h, cotor, aur)
                 Ornament.CHENAR_DUBLU -> chenarDublu(w, h, cotor, aur)
                 Ornament.COLTURI_FINE -> colturiFine(w, h, cotor, aur)
-                Ornament.LINIE_SIMPLA -> chenarSimplu(w, h, cotor, aur, 0.55f)
+                Ornament.LINIE_SIMPLA -> chenarSimplu(w, h, cotor, aur, 0.52f)
                 Ornament.LINII_DREPTE -> liniiDrepte(w, h, cotor, aur)
                 Ornament.VESEL -> vesel(w, h, cotor, aur)
                 Ornament.RUSTIC -> rustic(w, h, cotor, aur)
-                Ornament.NATURAL -> chenarSimplu(w, h, cotor, aur, 0.40f)
                 Ornament.SOBRU -> {}
             }
 
-            // lumina care cade de sus, umbra jos
+            // ---------- lumina camerei pe coperta ----------
             drawRect(
                 Brush.verticalGradient(
-                    0f to Color.White.copy(alpha = 0.09f),
-                    0.28f to Color.Transparent,
-                    0.82f to Color.Transparent,
-                    1f to Color.Black.copy(alpha = 0.26f)
+                    0f to Color.White.copy(alpha = 0.10f),
+                    0.30f to Color.Transparent,
+                    0.78f to Color.Transparent,
+                    1f to Color.Black.copy(alpha = 0.28f)
                 )
             )
         }
 
-        // titlul si autorul, presate in aur
+        // ---------- titlul si autorul, presate in aur ----------
         Column(
             Modifier
                 .fillMaxSize()
-                .padding(start = 22.dp, end = 13.dp, top = 22.dp, bottom = 22.dp),
+                .padding(start = 24.dp, end = 13.dp, top = 20.dp, bottom = 20.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            TextAurit(
+            LiniaAur(stil.aur, foitaAur, 0.36f)
+            Spacer(Modifier.height(11.dp))
+            TextPresat(
                 text = carte.titlu,
-                aur = leg.aur,
+                aur = stil.aur,
+                foita = foitaAur,
                 marime = if (carte.titlu.length > 34) 11.sp else 13.sp,
-                inaltimeRand = if (carte.titlu.length > 34) 15.sp else 17.sp,
+                inaltime = if (carte.titlu.length > 34) 15.sp else 17.sp,
                 greutate = FontWeight.SemiBold,
                 randuri = 5
             )
+            Spacer(Modifier.height(11.dp))
+            LiniaAur(stil.aur, foitaAur, 0.36f)
+
             if (carte.autor.isNotBlank()) {
-                Spacer(Modifier.height(10.dp))
-                Box(
-                    Modifier
-                        .fillMaxWidth(0.30f)
-                        .height(0.8.dp)
-                        .background(leg.aur.copy(alpha = 0.55f))
-                )
-                Spacer(Modifier.height(10.dp))
-                TextAurit(
+                Spacer(Modifier.height(15.dp))
+                TextPresat(
                     text = carte.autor,
-                    aur = leg.aur,
+                    aur = stil.aur,
+                    foita = foitaAur,
                     marime = 9.5.sp,
-                    inaltimeRand = 12.sp,
+                    inaltime = 12.sp,
                     greutate = FontWeight.Normal,
                     randuri = 2,
-                    transparenta = 0.78f
+                    transparenta = 0.85f
                 )
             }
         }
     }
 }
 
-/** Literele presate: umbra adanca sub ele, apoi aurul deasupra. */
 @Composable
-private fun TextAurit(
+private fun LiniaAur(aur: Color, foita: Brush?, latime: Float) {
+    Box(
+        Modifier
+            .fillMaxWidth(latime)
+            .height(1.1.dp)
+            .material(foita)
+            .then(
+                if (foita == null) Modifier.material(Brush.horizontalGradient(listOf(aur, aur)))
+                else Modifier
+            )
+    )
+}
+
+/**
+ * Literele presate: mai intai umbra adanca dedesubt,
+ * apoi litera cu foita de aur deasupra.
+ */
+@Composable
+private fun TextPresat(
     text: String,
     aur: Color,
+    foita: Brush?,
     marime: androidx.compose.ui.unit.TextUnit,
-    inaltimeRand: androidx.compose.ui.unit.TextUnit,
+    inaltime: androidx.compose.ui.unit.TextUnit,
     greutate: FontWeight,
     randuri: Int,
     transparenta: Float = 1f
 ) {
     Box(contentAlignment = Alignment.Center) {
+        // adancitura in piele
         Text(
             text = text,
-            color = Color.Black.copy(alpha = 0.55f),
+            color = Color.Black.copy(alpha = 0.62f),
             textAlign = TextAlign.Center,
             maxLines = randuri,
             overflow = TextOverflow.Ellipsis,
             fontFamily = FontFamily.Serif,
             fontWeight = greutate,
             fontSize = marime,
-            lineHeight = inaltimeRand,
-            modifier = Modifier.padding(top = 1.2.dp)
+            lineHeight = inaltime,
+            modifier = Modifier.padding(top = 1.4.dp)
         )
-        Text(
-            text = text,
-            color = aur.copy(alpha = transparenta),
-            textAlign = TextAlign.Center,
-            maxLines = randuri,
-            overflow = TextOverflow.Ellipsis,
-            fontFamily = FontFamily.Serif,
-            fontWeight = greutate,
-            fontSize = marime,
-            lineHeight = inaltimeRand
-        )
+        // litera aurita
+        if (foita != null) {
+            Text(
+                text = text,
+                brush = foita,
+                alpha = transparenta,
+                textAlign = TextAlign.Center,
+                maxLines = randuri,
+                overflow = TextOverflow.Ellipsis,
+                fontFamily = FontFamily.Serif,
+                fontWeight = greutate,
+                fontSize = marime,
+                lineHeight = inaltime
+            )
+        } else {
+            Text(
+                text = text,
+                color = aur.copy(alpha = transparenta),
+                textAlign = TextAlign.Center,
+                maxLines = randuri,
+                overflow = TextOverflow.Ellipsis,
+                fontFamily = FontFamily.Serif,
+                fontWeight = greutate,
+                fontSize = marime,
+                lineHeight = inaltime
+            )
+        }
     }
 }
 
-// ---------- ornamentele ----------
+// ---------- ornamentele presate in piele ----------
 
 private fun DrawScope.presat(cale: Path, aur: Color, grosime: Float) {
-    translate(cale, 0f, 1f) { p ->
-        drawPath(p, Color.Black.copy(alpha = 0.42f), style = Stroke(width = grosime))
-    }
-    drawPath(cale, aur.copy(alpha = 0.82f), style = Stroke(width = grosime))
-}
-
-private fun DrawScope.translate(cale: Path, dx: Float, dy: Float, bloc: (Path) -> Unit) {
-    val p = Path()
-    p.addPath(cale, Offset(dx, dy))
-    bloc(p)
+    val umbra = Path()
+    umbra.addPath(cale, Offset(0f, 1.3f))
+    drawPath(umbra, Color.Black.copy(alpha = 0.45f), style = Stroke(width = grosime))
+    drawPath(cale, aur.copy(alpha = 0.85f), style = Stroke(width = grosime))
 }
 
 private fun dreptunghi(x0: Float, y0: Float, x1: Float, y1: Float): Path {
@@ -271,24 +292,23 @@ private fun dreptunghi(x0: Float, y0: Float, x1: Float, y1: Float): Path {
 
 private fun DrawScope.chenarSimplu(w: Float, h: Float, cotor: Float, aur: Color, tarie: Float) {
     val m = w * 0.10f
-    presat(dreptunghi(cotor + m, m, w - m, h - m), aur.copy(alpha = tarie), 1.1f)
+    presat(dreptunghi(cotor + m, m, w - m, h - m), aur.copy(alpha = tarie), 1.2f)
 }
 
 private fun DrawScope.chenarDublu(w: Float, h: Float, cotor: Float, aur: Color) {
     val m = w * 0.085f
-    presat(dreptunghi(cotor + m, m, w - m, h - m), aur, 1.4f)
-    val m2 = m + w * 0.045f
-    presat(dreptunghi(cotor + m2, m2, w - m2, h - m2), aur.copy(alpha = 0.6f), 0.8f)
+    presat(dreptunghi(cotor + m, m, w - m, h - m), aur, 1.5f)
+    val m2 = m + w * 0.048f
+    presat(dreptunghi(cotor + m2, m2, w - m2, h - m2), aur.copy(alpha = 0.6f), 0.9f)
 }
 
 private fun DrawScope.chenarInflorat(w: Float, h: Float, cotor: Float, aur: Color) {
     val m = w * 0.085f
-    presat(dreptunghi(cotor + m, m, w - m, h - m), aur, 1.5f)
-    val m2 = m + w * 0.05f
-    presat(dreptunghi(cotor + m2, m2, w - m2, h - m2), aur.copy(alpha = 0.55f), 0.8f)
+    presat(dreptunghi(cotor + m, m, w - m, h - m), aur, 1.6f)
+    val m2 = m + w * 0.052f
+    presat(dreptunghi(cotor + m2, m2, w - m2, h - m2), aur.copy(alpha = 0.55f), 0.9f)
 
-    // colturi: o floare stilizata din trei petale
-    val r = w * 0.075f
+    val r = w * 0.078f
     val colturi = listOf(
         Triple(cotor + m, m, 0),
         Triple(w - m, m, 1),
@@ -299,28 +319,27 @@ private fun DrawScope.chenarInflorat(w: Float, h: Float, cotor: Float, aur: Colo
         val baza = (k * 90f + 45f) * Math.PI.toFloat() / 180f
         val p = Path()
         for (i in 0..2) {
-            val unghi = baza + (i - 1) * 0.55f
-            val vx = cx + cos(unghi) * r
-            val vy = cy + sin(unghi) * r
+            val unghi = baza + (i - 1) * 0.58f
             p.moveTo(cx, cy)
             p.quadraticBezierTo(
-                cx + cos(unghi - 0.4f) * r * 0.7f,
-                cy + sin(unghi - 0.4f) * r * 0.7f,
-                vx, vy
+                cx + cos(unghi - 0.42f) * r * 0.7f,
+                cy + sin(unghi - 0.42f) * r * 0.7f,
+                cx + cos(unghi) * r,
+                cy + sin(unghi) * r
             )
             p.quadraticBezierTo(
-                cx + cos(unghi + 0.4f) * r * 0.7f,
-                cy + sin(unghi + 0.4f) * r * 0.7f,
+                cx + cos(unghi + 0.42f) * r * 0.7f,
+                cy + sin(unghi + 0.42f) * r * 0.7f,
                 cx, cy
             )
         }
-        presat(p, aur.copy(alpha = 0.75f), 1f)
+        presat(p, aur.copy(alpha = 0.8f), 1.1f)
     }
 }
 
 private fun DrawScope.colturiFine(w: Float, h: Float, cotor: Float, aur: Color) {
     val m = w * 0.09f
-    val l = w * 0.16f
+    val l = w * 0.17f
     val colturi = listOf(
         listOf(Offset(cotor + m, m + l), Offset(cotor + m, m), Offset(cotor + m + l, m)),
         listOf(Offset(w - m - l, m), Offset(w - m, m), Offset(w - m, m + l)),
@@ -332,37 +351,28 @@ private fun DrawScope.colturiFine(w: Float, h: Float, cotor: Float, aur: Color) 
         p.moveTo(c[0].x, c[0].y)
         p.lineTo(c[1].x, c[1].y)
         p.lineTo(c[2].x, c[2].y)
-        translate(p, 0f, 1f) { q ->
-            drawPath(q, Color.Black.copy(alpha = 0.40f), style = Stroke(width = 1.3f))
-        }
-        drawPath(p, aur.copy(alpha = 0.8f), style = Stroke(width = 1.3f))
+        presat(p, aur.copy(alpha = 0.85f), 1.4f)
     }
 }
 
 private fun DrawScope.liniiDrepte(w: Float, h: Float, cotor: Float, aur: Color) {
     val m = w * 0.11f
-    for (y in listOf(h * 0.13f, h * 0.87f)) {
-        drawRect(
-            Color.Black.copy(alpha = 0.35f),
-            topLeft = Offset(cotor + m, y + 1f),
-            size = Size(w - m - cotor - m, 1.3f)
-        )
-        drawRect(
-            aur.copy(alpha = 0.7f),
-            topLeft = Offset(cotor + m, y),
-            size = Size(w - m - cotor - m, 1.3f)
-        )
+    for (y in listOf(h * 0.12f, h * 0.88f)) {
+        val p = Path()
+        p.moveTo(cotor + m, y)
+        p.lineTo(w - m, y)
+        presat(p, aur.copy(alpha = 0.75f), 1.4f)
     }
 }
 
 private fun DrawScope.vesel(w: Float, h: Float, cotor: Float, aur: Color) {
     val m = w * 0.09f
-    val p = Path()
     val x0 = cotor + m
     val x1 = w - m
     val y0 = m
     val y1 = h - m
-    val r = w * 0.12f
+    val r = w * 0.13f
+    val p = Path()
     p.moveTo(x0 + r, y0)
     p.lineTo(x1 - r, y0)
     p.quadraticBezierTo(x1, y0, x1, y0 + r)
@@ -372,10 +382,10 @@ private fun DrawScope.vesel(w: Float, h: Float, cotor: Float, aur: Color) {
     p.quadraticBezierTo(x0, y1, x0, y1 - r)
     p.lineTo(x0, y0 + r)
     p.quadraticBezierTo(x0, y0, x0 + r, y0)
-    presat(p, aur, 1.6f)
+    presat(p, aur, 1.7f)
 }
 
 private fun DrawScope.rustic(w: Float, h: Float, cotor: Float, aur: Color) {
     val m = w * 0.10f
-    presat(dreptunghi(cotor + m, m, w - m, h - m), aur.copy(alpha = 0.65f), 2.2f)
+    presat(dreptunghi(cotor + m, m, w - m, h - m), aur.copy(alpha = 0.65f), 2.4f)
 }
