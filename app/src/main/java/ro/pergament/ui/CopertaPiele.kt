@@ -21,10 +21,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ro.pergament.data.Carte
@@ -32,18 +34,11 @@ import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.sin
 
-/** Cum arata legatura cartilor de pe fiecare raft. */
 private enum class Legatura { MARO, VISINIE, VERDE, ALBASTRA, CARAMEL }
 
 private enum class Ornament {
-    CHENAR_INFLORAT,   // religie
-    SOBRU,             // filosofie
-    CHENAR_DUBLU,      // istorie, afaceri, calatorii
-    COLTURI_FINE,      // poezie, arta
-    LINIE_SIMPLA,      // literatura, psihologie, sanatate
-    LINII_DREPTE,      // stiinte, tehnica, manuale
-    VESEL,             // copii
-    RUSTIC             // gatit
+    CHENAR_INFLORAT, SOBRU, CHENAR_DUBLU, COLTURI_FINE,
+    LINIE_SIMPLA, LINII_DREPTE, VESEL, RUSTIC
 }
 
 private data class Stil(val legatura: Legatura, val ornament: Ornament, val aur: Color)
@@ -80,7 +75,6 @@ fun CopertaPiele(carte: Carte) {
     val stil = remember(carte.raft) { STILURI[carte.raft] ?: IMPLICIT }
     val seed = remember(carte.titlu) { abs(carte.titlu.hashCode()) }
 
-    // fiecare carte primeste pielea putin altfel asezata, ca sa nu semene doua la fel
     val scara = 0.46f + (seed % 7) * 0.035f
     val piele = when (stil.legatura) {
         Legatura.MARO -> pieleMaro(scara)
@@ -101,7 +95,6 @@ fun CopertaPiele(carte: Carte) {
             val h = size.height
             val aur = stil.aur
 
-            // ---------- cotorul ----------
             val cotor = w * 0.135f
             drawRect(
                 Brush.horizontalGradient(
@@ -111,7 +104,6 @@ fun CopertaPiele(carte: Carte) {
                 ),
                 size = Size(cotor * 1.5f, h)
             )
-            // nervurile cotorului, ca la cartile cusute de mana
             for (i in 1..4) {
                 val y = h * (0.15f + i * 0.175f)
                 drawRect(
@@ -136,7 +128,6 @@ fun CopertaPiele(carte: Carte) {
                 size = Size(1.3f, h)
             )
 
-            // ---------- ornamentul, dupa gen ----------
             when (stil.ornament) {
                 Ornament.CHENAR_INFLORAT -> chenarInflorat(w, h, cotor, aur)
                 Ornament.CHENAR_DUBLU -> chenarDublu(w, h, cotor, aur)
@@ -148,7 +139,6 @@ fun CopertaPiele(carte: Carte) {
                 Ornament.SOBRU -> {}
             }
 
-            // ---------- lumina camerei pe coperta ----------
             drawRect(
                 Brush.verticalGradient(
                     0f to Color.White.copy(alpha = 0.10f),
@@ -159,7 +149,6 @@ fun CopertaPiele(carte: Carte) {
             )
         }
 
-        // ---------- titlul si autorul, presate in aur ----------
         Column(
             Modifier
                 .fillMaxSize()
@@ -167,7 +156,7 @@ fun CopertaPiele(carte: Carte) {
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            LiniaAur(stil.aur, foitaAur, 0.36f)
+            LiniaAur(stil.aur, foitaAur)
             Spacer(Modifier.height(11.dp))
             TextPresat(
                 text = carte.titlu,
@@ -179,7 +168,7 @@ fun CopertaPiele(carte: Carte) {
                 randuri = 5
             )
             Spacer(Modifier.height(11.dp))
-            LiniaAur(stil.aur, foitaAur, 0.36f)
+            LiniaAur(stil.aur, foitaAur)
 
             if (carte.autor.isNotBlank()) {
                 Spacer(Modifier.height(15.dp))
@@ -199,75 +188,50 @@ fun CopertaPiele(carte: Carte) {
 }
 
 @Composable
-private fun LiniaAur(aur: Color, foita: Brush?, latime: Float) {
+private fun LiniaAur(aur: Color, foita: Brush?) {
     Box(
         Modifier
-            .fillMaxWidth(latime)
+            .fillMaxWidth(0.36f)
             .height(1.1.dp)
-            .material(foita)
-            .then(
-                if (foita == null) Modifier.material(Brush.horizontalGradient(listOf(aur, aur)))
-                else Modifier
-            )
+            .material(foita ?: Brush.horizontalGradient(listOf(aur, aur)))
     )
 }
 
-/**
- * Literele presate: mai intai umbra adanca dedesubt,
- * apoi litera cu foita de aur deasupra.
- */
+/** Litera presata: umbra adanca dedesubt, foita de aur deasupra. */
 @Composable
 private fun TextPresat(
     text: String,
     aur: Color,
     foita: Brush?,
-    marime: androidx.compose.ui.unit.TextUnit,
-    inaltime: androidx.compose.ui.unit.TextUnit,
+    marime: TextUnit,
+    inaltime: TextUnit,
     greutate: FontWeight,
     randuri: Int,
     transparenta: Float = 1f
 ) {
+    val baza = TextStyle(
+        fontFamily = FontFamily.Serif,
+        fontWeight = greutate,
+        fontSize = marime,
+        lineHeight = inaltime,
+        textAlign = TextAlign.Center
+    )
+
     Box(contentAlignment = Alignment.Center) {
-        // adancitura in piele
         Text(
             text = text,
-            color = Color.Black.copy(alpha = 0.62f),
-            textAlign = TextAlign.Center,
+            style = baza.copy(color = Color.Black.copy(alpha = 0.62f)),
             maxLines = randuri,
             overflow = TextOverflow.Ellipsis,
-            fontFamily = FontFamily.Serif,
-            fontWeight = greutate,
-            fontSize = marime,
-            lineHeight = inaltime,
             modifier = Modifier.padding(top = 1.4.dp)
         )
-        // litera aurita
-        if (foita != null) {
-            Text(
-                text = text,
-                brush = foita,
-                alpha = transparenta,
-                textAlign = TextAlign.Center,
-                maxLines = randuri,
-                overflow = TextOverflow.Ellipsis,
-                fontFamily = FontFamily.Serif,
-                fontWeight = greutate,
-                fontSize = marime,
-                lineHeight = inaltime
-            )
-        } else {
-            Text(
-                text = text,
-                color = aur.copy(alpha = transparenta),
-                textAlign = TextAlign.Center,
-                maxLines = randuri,
-                overflow = TextOverflow.Ellipsis,
-                fontFamily = FontFamily.Serif,
-                fontWeight = greutate,
-                fontSize = marime,
-                lineHeight = inaltime
-            )
-        }
+        Text(
+            text = text,
+            style = if (foita != null) baza.copy(brush = foita, alpha = transparenta)
+            else baza.copy(color = aur.copy(alpha = transparenta)),
+            maxLines = randuri,
+            overflow = TextOverflow.Ellipsis
+        )
     }
 }
 
