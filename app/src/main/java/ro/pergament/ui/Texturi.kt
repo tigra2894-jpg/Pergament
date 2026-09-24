@@ -29,14 +29,21 @@ import ro.pergament.R
  * Texturile se citesc o singura data de pe disc si se tin minte.
  * inScaled = false: Android nu le mai umfla dupa densitatea ecranului,
  * altfel fiecare ar ocupa de cateva ori mai multa memorie.
+ * Fisierele au 1024 px; le citim la jumatate, adica de patru ori mai putina
+ * memorie pentru fiecare material (1 MB in loc de 4 MB), fara diferenta la ochi,
+ * fiindca oricum le micsoram cand le asezam pe ecran.
  */
 object Texturi {
+    /** De cate ori e micsorata textura la citire. */
+    const val ESANTION = 2
+
     private val cache = HashMap<Int, ImageBitmap>()
 
     fun imagine(ctx: Context, id: Int): ImageBitmap? = synchronized(cache) {
         cache[id] ?: try {
             val opt = BitmapFactory.Options()
             opt.inScaled = false
+            opt.inSampleSize = ESANTION
             BitmapFactory.decodeResource(ctx.resources, id, opt)
                 ?.asImageBitmap()
                 ?.also { cache[id] = it }
@@ -55,9 +62,11 @@ fun rememberTextura(id: Int, scara: Float = 1f): Brush? {
     return remember(id, scara) {
         val img = Texturi.imagine(ctx, id) ?: return@remember null
         val shader = ImageShader(img, TileMode.Repeated, TileMode.Repeated)
-        if (scara != 1f) {
+        // textura a fost citita micsorata, asa ca o intindem la loc
+        val factor = scara * Texturi.ESANTION
+        if (factor != 1f) {
             val m = Matrix()
-            m.setScale(scara, scara)
+            m.setScale(factor, factor)
             shader.setLocalMatrix(m)
         }
         ShaderBrush(shader)
@@ -97,7 +106,7 @@ fun Modifier.textura(brush: Brush?, alpha: Float = 1f) = material(brush, alpha)
 fun Modifier.texturaPeste(brush: Brush?, alpha: Float) = materialPeste(brush, alpha)
 
 @Composable fun texturaPiele() = pieleMaro(0.85f)
-@Composable fun texturaLemn() = lemnStejar()
+@Composable fun texturaLemn() = lemnNuc()
 @Composable fun texturaPergament() = hartieVeche()
 @Composable fun texturaHartie() = hartieCrem()
 @Composable fun texturaPanza() = catifea()
