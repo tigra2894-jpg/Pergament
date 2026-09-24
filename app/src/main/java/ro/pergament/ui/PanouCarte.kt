@@ -74,6 +74,7 @@ fun PanouCarte(
     onInchide: () -> Unit
 ) {
     var fila by remember { mutableIntStateOf(filaInitiala) }
+    val nuc = texturaLemn()
     var cautare by remember { mutableStateOf("") }
     var rezultate by remember { mutableStateOf<List<Gasire>?>(null) }
     var cauta by remember { mutableStateOf(false) }
@@ -130,6 +131,7 @@ fun PanouCarte(
                 .fillMaxHeight()
                 .fillMaxWidth(0.88f)
                 .background(Lemn)
+                .textura(nuc, 0.28f)
                 .pointerInput(Unit) {
                     detectTapGestures { }
                 }
