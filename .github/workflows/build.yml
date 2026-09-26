@@ -41,8 +41,8 @@ jobs:
           EOF
           echo "Cheia e pregatita."
 
-      - name: Construieste APK-ul de incercare
-        run: gradle assembleDebug --no-daemon --stacktrace
+      - name: Ruleaza testele si construieste APK-ul de incercare
+        run: gradle testDebugUnitTest assembleDebug --no-daemon --stacktrace
 
       - name: Construieste APK-ul si pachetul AAB de publicare
         if: env.ARE_CHEIE == 'true'
