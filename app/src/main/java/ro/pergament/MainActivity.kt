@@ -120,9 +120,19 @@ fun Aplicatia() {
                 val existenteAmprente = carti.map { amprenta(it) }.toMutableSet()
                 val noi = mutableListOf<Carte>()
                 var dubluri = 0
+                var respinse = 0
 
                 withContext(Dispatchers.IO) {
                     for (u in uriuri) {
+                        val acceptat = try {
+                            Import.formatAcceptat(Import.numeFisier(ctx, u))
+                        } catch (e: Exception) {
+                            true
+                        }
+                        if (!acceptat) {
+                            respinse++
+                            continue
+                        }
                         val c = try {
                             Import.adauga(ctx, u)
                         } catch (e: Exception) {
@@ -158,7 +168,18 @@ fun Aplicatia() {
                     noi.size > 1 -> "Am adăugat ${noi.size} cărți."
                     else -> null
                 }
-                if (mesaj != null) Toast.makeText(ctx, mesaj, Toast.LENGTH_SHORT).show()
+                val mesajRespinse = when (respinse) {
+                    0 -> null
+                    1 -> "Un fișier nu a fost adăugat: Pergament citește doar PDF, EPUB, TXT și CBZ."
+                    else -> "$respinse fișiere nu au fost adăugate: Pergament citește doar PDF, EPUB, TXT și CBZ."
+                }
+                val tot = listOfNotNull(mesaj, mesajRespinse).joinToString("\n")
+                if (tot.isNotEmpty()) {
+                    Toast.makeText(
+                        ctx, tot,
+                        if (mesajRespinse != null) Toast.LENGTH_LONG else Toast.LENGTH_SHORT
+                    ).show()
+                }
             }
         }
     }

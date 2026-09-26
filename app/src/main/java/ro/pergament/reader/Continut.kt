@@ -356,16 +356,59 @@ object Cititor {
         var s = html
         s = s.replace(Regex("(?is)<(script|style|head)[^>]*>.*?</\\1>"), " ")
         s = s.replace(Regex("(?i)<br\\s*/?>"), "\n")
-        s = s.replace(Regex("(?i)</(p|div|h1|h2|h3|h4|li|tr)>"), "\n\n")
+        s = s.replace(Regex("(?i)</(p|div|h[1-6]|li|tr|blockquote|section)>"), "\n\n")
         s = s.replace(Regex("<[^>]+>"), "")
-        s = s.replace("&nbsp;", " ").replace("&amp;", "&").replace("&lt;", "<")
-            .replace("&gt;", ">").replace("&quot;", "\"").replace("&#39;", "'")
-            .replace("&rsquo;", "’").replace("&ldquo;", "„").replace("&rdquo;", "”")
-            .replace("&mdash;", "—").replace("&ndash;", "–").replace("&hellip;", "…")
-        s = s.replace(Regex("[ \\t\\x0B\\f\\r]+"), " ")
+        s = decodeazaEntitati(s)
+        s = s.replace(Regex("[ \\t\\x0B\\f\\r\\u00A0]+"), " ")
         s = s.replace(Regex("\\n{3,}"), "\n\n")
         return s.trim()
     }
+
+    private val ENTITATI = mapOf(
+        "nbsp" to " ", "amp" to "&", "lt" to "<", "gt" to ">", "quot" to "\"",
+        "apos" to "'", "lsquo" to "‘", "rsquo" to "’", "sbquo" to "‚",
+        "ldquo" to "“", "rdquo" to "”", "bdquo" to "„", "laquo" to "«", "raquo" to "»",
+        "mdash" to "—", "ndash" to "–", "hellip" to "…", "shy" to "",
+        "copy" to "©", "reg" to "®", "trade" to "™", "deg" to "°", "sect" to "§",
+        "para" to "¶", "middot" to "·", "bull" to "•", "times" to "×", "divide" to "÷",
+        "euro" to "€", "pound" to "£", "cent" to "¢", "yen" to "¥",
+        "frac12" to "½", "frac14" to "¼", "frac34" to "¾", "sup1" to "¹", "sup2" to "²", "sup3" to "³",
+        "iexcl" to "¡", "iquest" to "¿", "dagger" to "†", "Dagger" to "‡", "prime" to "′",
+        "Agrave" to "À", "Aacute" to "Á", "Acirc" to "Â", "Atilde" to "Ã", "Auml" to "Ä", "Aring" to "Å",
+        "agrave" to "à", "aacute" to "á", "acirc" to "â", "atilde" to "ã", "auml" to "ä", "aring" to "å",
+        "AElig" to "Æ", "aelig" to "æ", "Ccedil" to "Ç", "ccedil" to "ç",
+        "Egrave" to "È", "Eacute" to "É", "Ecirc" to "Ê", "Euml" to "Ë",
+        "egrave" to "è", "eacute" to "é", "ecirc" to "ê", "euml" to "ë",
+        "Igrave" to "Ì", "Iacute" to "Í", "Icirc" to "Î", "Iuml" to "Ï",
+        "igrave" to "ì", "iacute" to "í", "icirc" to "î", "iuml" to "ï",
+        "Ntilde" to "Ñ", "ntilde" to "ñ",
+        "Ograve" to "Ò", "Oacute" to "Ó", "Ocirc" to "Ô", "Otilde" to "Õ", "Ouml" to "Ö", "Oslash" to "Ø",
+        "ograve" to "ò", "oacute" to "ó", "ocirc" to "ô", "otilde" to "õ", "ouml" to "ö", "oslash" to "ø",
+        "Ugrave" to "Ù", "Uacute" to "Ú", "Ucirc" to "Û", "Uuml" to "Ü",
+        "ugrave" to "ù", "uacute" to "ú", "ucirc" to "û", "uuml" to "ü",
+        "Yacute" to "Ý", "yacute" to "ý", "yuml" to "ÿ", "szlig" to "ß",
+        "OElig" to "Œ", "oelig" to "œ", "Scaron" to "Š", "scaron" to "š"
+    )
+
+    /**
+     * Transforma codurile HTML (&amp;mdash; &amp;#8217; &amp;#x2019; ...) in litere.
+     * Totul dintr-o singura trecere, ca "&amp;amp;#39;" sa ramana "&#39;" si nu "'".
+     */
+    fun decodeazaEntitati(text: String): String =
+        Regex("&(#[xX][0-9a-fA-F]{1,6}|#[0-9]{1,7}|[a-zA-Z][a-zA-Z0-9]{1,31});").replace(text) { m ->
+            val cod = m.groupValues[1]
+            val punct = when {
+                cod.startsWith("#x") || cod.startsWith("#X") -> cod.substring(2).toIntOrNull(16)
+                cod.startsWith("#") -> cod.substring(1).toIntOrNull()
+                else -> null
+            }
+            when {
+                punct != null && Character.isValidCodePoint(punct) && punct != 0 ->
+                    String(Character.toChars(punct))
+                punct != null -> ""
+                else -> ENTITATI[cod] ?: m.value
+            }
+        }
 
     fun paginare(text: String, caractere: Int): List<String> {
         if (text.isBlank()) return listOf("Această carte nu conține text care poate fi citit.")

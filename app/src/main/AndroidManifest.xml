@@ -3,8 +3,9 @@
 
     <application
         android:name=".Pergament"
-        android:allowBackup="true"
-        android:icon="@drawable/ic_pergament"
+        android:allowBackup="false"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:largeHeap="true"
         android:supportsRtl="false"

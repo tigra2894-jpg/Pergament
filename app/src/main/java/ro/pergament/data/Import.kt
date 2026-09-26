@@ -8,6 +8,7 @@ import android.graphics.Color
 import android.graphics.pdf.PdfRenderer
 import android.net.Uri
 import android.provider.OpenableColumns
+import ro.pergament.reader.Cititor
 import java.io.File
 import java.io.FileOutputStream
 import java.util.Locale
@@ -116,7 +117,15 @@ object Import {
      * Aduce cartea in biblioteca: ii copiaza fisierul in aplicatie,
      * ii citeste titlul si autorul, ii scoate coperta.
      */
+    /** Formatele pe care cititorul le stie deschide. */
+    private val EXTENSII = setOf("pdf", "epub", "txt", "md", "cbz", "zip", "")
+
+    fun formatAcceptat(nume: String): Boolean =
+        nume.substringAfterLast('.', "").lowercase(Locale.ROOT) in EXTENSII
+
     fun adauga(ctx: Context, uri: Uri): Carte? {
+        if (!formatAcceptat(numeFisier(ctx, uri))) return null
+
         try {
             ctx.contentResolver.takePersistableUriPermission(
                 uri, Intent.FLAG_GRANT_READ_URI_PERMISSION
@@ -131,7 +140,7 @@ object Import {
             "epub" -> "EPUB"
             "txt", "md" -> "TXT"
             "cbz", "zip" -> "CBZ"
-            else -> if (ext.isBlank()) "TXT" else ext.uppercase(Locale.ROOT)
+            else -> "TXT"
         }
 
         val id = "b" + System.currentTimeMillis() + "_" +
@@ -298,7 +307,7 @@ object Import {
                                 .find(text)?.groupValues?.get(1)?.trim() ?: ""
                             val a = Regex("<dc:creator[^>]*>(.*?)</dc:creator>", RegexOption.DOT_MATCHES_ALL)
                                 .find(text)?.groupValues?.get(1)?.trim() ?: ""
-                            return t.take(140) to a.take(60)
+                            return curataMeta(t).take(140) to curataMeta(a).take(60)
                         }
                         zis.closeEntry()
                         e = zis.nextEntry
@@ -309,6 +318,12 @@ object Import {
         }
         return "" to ""
     }
+
+    private fun curataMeta(s: String): String =
+        Cititor.decodeazaEntitati(
+            s.replace(Regex("<!\\[CDATA\\[(.*?)]]>", RegexOption.DOT_MATCHES_ALL), "$1")
+                .replace(Regex("<[^>]+>"), "")
+        ).replace(Regex("\\s+"), " ").trim()
 
     // ---------- coperti ----------
 

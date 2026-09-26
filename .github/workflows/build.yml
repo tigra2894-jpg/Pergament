@@ -23,7 +23,7 @@ jobs:
       - name: Pregateste Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: '8.9'
+          gradle-version: '8.14.3'
 
       - name: Pune cheia de semnatura
         if: env.ARE_CHEIE == 'true'
@@ -44,9 +44,9 @@ jobs:
       - name: Construieste APK-ul de incercare
         run: gradle assembleDebug --no-daemon --stacktrace
 
-      - name: Construieste APK-ul de publicare
+      - name: Construieste APK-ul si pachetul AAB de publicare
         if: env.ARE_CHEIE == 'true'
-        run: gradle assembleRelease --no-daemon --stacktrace
+        run: gradle assembleRelease bundleRelease --no-daemon --stacktrace
 
       - name: Sterge urmele cheii
         if: always()
@@ -59,10 +59,18 @@ jobs:
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
 
-      - name: Urca APK-ul pentru Play Store
+      - name: Urca pachetul AAB pentru Play Store
         if: env.ARE_CHEIE == 'true'
         uses: actions/upload-artifact@v4
         with:
-          name: Pergament-PENTRU-PLAY-STORE
+          name: Pergament-PENTRU-PLAY-STORE-aab
+          path: app/build/outputs/bundle/release/app-release.aab
+          if-no-files-found: error
+
+      - name: Urca APK-ul semnat (pentru instalare directa pe telefon)
+        if: env.ARE_CHEIE == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: Pergament-APK-semnat
           path: app/build/outputs/apk/release/app-release.apk
           if-no-files-found: warn

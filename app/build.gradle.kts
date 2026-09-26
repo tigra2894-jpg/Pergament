@@ -16,14 +16,14 @@ if (areCheie) {
 
 android {
     namespace = "ro.pergament"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "ro.pergament"
         minSdk = 26
-        targetSdk = 35
-        versionCode = 3
-        versionName = "1.2"
+        targetSdk = 36
+        versionCode = 4
+        versionName = "1.3"
     }
 
     signingConfigs {
@@ -39,7 +39,12 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
             if (areCheie) {
                 signingConfig = signingConfigs.getByName("publicare")
             }

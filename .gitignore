@@ -1,0 +1,13 @@
+.gradle/
+build/
+/local.properties
+.idea/
+*.iml
+.DS_Store
+.kotlin/
+
+# cheia de semnatura nu intra niciodata in repo
+cheie.properties
+*.jks
+*.keystore
+cheie_text.txt
